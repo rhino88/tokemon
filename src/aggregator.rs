@@ -57,17 +57,7 @@ pub fn filter_by_date(
         .into_iter()
         .filter(|e| {
             let date = e.timestamp.date_naive();
-            if let Some(s) = since {
-                if date < s {
-                    return false;
-                }
-            }
-            if let Some(u) = until {
-                if date > u {
-                    return false;
-                }
-            }
-            true
+            since.map_or(true, |s| date >= s) && until.map_or(true, |u| date <= u)
         })
         .collect()
 }

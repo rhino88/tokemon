@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use serde::Deserialize;
@@ -158,14 +158,14 @@ impl PricingEngine {
         paths::cache_dir().join("pricing.json")
     }
 
-    fn read_cache(path: &PathBuf) -> Option<String> {
-        let metadata = fs::metadata(path).ok()?;
-        let modified = metadata.modified().ok()?;
-        let age = SystemTime::now().duration_since(modified).ok()?;
-        if age.as_secs() > CACHE_TTL_SECS {
-            return None;
-        }
-        fs::read_to_string(path).ok()
+    fn read_cache(path: &Path) -> Option<String> {
+        fs::metadata(path)
+            .ok()?
+            .modified()
+            .ok()
+            .and_then(|modified| SystemTime::now().duration_since(modified).ok())
+            .filter(|age| age.as_secs() <= CACHE_TTL_SECS)
+            .and_then(|_| fs::read_to_string(path).ok())
     }
 
     fn fetch_remote() -> Result<String> {

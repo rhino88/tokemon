@@ -94,74 +94,58 @@ impl<C: JsonlProviderConfig> super::Provider for GenericJsonlProvider<C> {
     fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
         let file = fs::File::open(path).map_err(TokemonError::Io)?;
         let reader = BufReader::new(file);
-        let mut entries = Vec::new();
+        let session_id = parse_utils::extract_session_id(path);
 
-        let session_id = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string());
+        let entries = reader
+            .lines()
+            .filter_map(|line| line.ok())
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(|line| serde_json::from_str::<JsonlLine>(&line).ok())
+            .filter(|parsed| {
+                matches!(
+                    parsed.line_type.as_deref(),
+                    Some("assistant") | Some("response")
+                )
+            })
+            .filter_map(|parsed| {
+                let usage = parsed.usage?;
+                let timestamp = parsed
+                    .timestamp
+                    .as_deref()
+                    .and_then(parse_utils::parse_timestamp)?;
 
-        for line in reader.lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            let parsed: JsonlLine = match serde_json::from_str(&line) {
-                Ok(p) => p,
-                Err(_) => continue,
-            };
-
-            let line_type = parsed.line_type.as_deref().unwrap_or("");
-            if line_type != "assistant" && line_type != "response" {
-                continue;
-            }
-
-            let usage = match parsed.usage {
-                Some(u) => u,
-                None => continue,
-            };
-
-            let timestamp = match parsed.timestamp.as_deref().and_then(parse_utils::parse_timestamp) {
-                Some(dt) => dt,
-                None => continue,
-            };
-
-            entries.push(UsageEntry {
-                timestamp,
-                provider: C::NAME.to_string(),
-                model: parsed.model,
-                input_tokens: usage.input_tokens.unwrap_or(0),
-                output_tokens: usage.output_tokens.unwrap_or(0),
-                cache_read_tokens: if C::HAS_CACHE_TOKENS {
-                    usage.cache_read_tokens.unwrap_or(0)
-                } else {
-                    0
-                },
-                cache_creation_tokens: if C::HAS_CACHE_TOKENS {
-                    usage.cache_creation_tokens.unwrap_or(0)
-                } else {
-                    0
-                },
-                thinking_tokens: 0,
-                cost_usd: None,
-                message_id: if C::HAS_REQUEST_IDS {
-                    parsed.message_id
-                } else {
-                    None
-                },
-                request_id: if C::HAS_REQUEST_IDS {
-                    parsed.request_id
-                } else {
-                    None
-                },
-                session_id: session_id.clone(),
-            });
-        }
+                Some(UsageEntry {
+                    timestamp,
+                    provider: C::NAME.to_string(),
+                    model: parsed.model,
+                    input_tokens: usage.input_tokens.unwrap_or(0),
+                    output_tokens: usage.output_tokens.unwrap_or(0),
+                    cache_read_tokens: if C::HAS_CACHE_TOKENS {
+                        usage.cache_read_tokens.unwrap_or(0)
+                    } else {
+                        0
+                    },
+                    cache_creation_tokens: if C::HAS_CACHE_TOKENS {
+                        usage.cache_creation_tokens.unwrap_or(0)
+                    } else {
+                        0
+                    },
+                    thinking_tokens: 0,
+                    cost_usd: None,
+                    message_id: if C::HAS_REQUEST_IDS {
+                        parsed.message_id
+                    } else {
+                        None
+                    },
+                    request_id: if C::HAS_REQUEST_IDS {
+                        parsed.request_id
+                    } else {
+                        None
+                    },
+                    session_id: session_id.clone(),
+                })
+            })
+            .collect();
 
         Ok(entries)
     }

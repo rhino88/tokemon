@@ -36,6 +36,11 @@ pub fn parse_timestamp_millis(ms: i64) -> Option<DateTime<Utc>> {
     DateTime::from_timestamp_millis(ms)
 }
 
+/// Extract a session ID from a file path (stem without extension).
+pub fn extract_session_id(path: &std::path::Path) -> Option<String> {
+    path.file_stem()?.to_str().map(String::from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -44,7 +49,7 @@ mod tests {
     fn test_rfc3339() {
         let ts = parse_timestamp("2026-02-20T10:00:05.000Z");
         assert!(ts.is_some());
-        assert_eq!(ts.unwrap().to_rfc3339().starts_with("2026-02-20"), true);
+        assert!(ts.unwrap().to_rfc3339().starts_with("2026-02-20"));
     }
 
     #[test]
