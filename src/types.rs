@@ -2,7 +2,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A single usage entry from any provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UsageEntry {
     pub timestamp: DateTime<Utc>,
     pub provider: String,
@@ -19,6 +19,7 @@ pub struct UsageEntry {
 }
 
 impl UsageEntry {
+    #[must_use]
     pub fn total_tokens(&self) -> u64 {
         self.input_tokens
             + self.output_tokens
@@ -29,6 +30,7 @@ impl UsageEntry {
 
     /// Generate dedup hash from message_id and request_id.
     /// Returns None if neither field is present (entry kept unconditionally).
+    #[must_use]
     pub fn dedup_key(&self) -> Option<String> {
         match (&self.message_id, &self.request_id) {
             (Some(msg), Some(req)) => Some(format!("{}:{}", msg, req)),
@@ -45,7 +47,7 @@ impl UsageEntry {
 }
 
 /// Aggregated usage for a single model within a time period
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ModelUsage {
     pub model: String,
     pub provider: String,

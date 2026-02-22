@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+/// VSCode-compatible editor forks that store extensions in globalStorage
+const VSCODE_FORKS: &[&str] = &["Code", "Cursor", "Windsurf", "VSCodium", "Positron"];
+
 pub fn home_dir() -> PathBuf {
     directories::BaseDirs::new()
         .map(|d| d.home_dir().to_path_buf())
@@ -26,8 +29,7 @@ pub fn vscode_global_storage_dirs() -> Vec<PathBuf> {
             .unwrap_or_default()
     };
 
-    let forks = ["Code", "Cursor", "Windsurf", "VSCodium", "Positron"];
-    forks
+    VSCODE_FORKS
         .iter()
         .map(|fork| base.join(fork).join("User/globalStorage"))
         .filter(|p| p.exists())

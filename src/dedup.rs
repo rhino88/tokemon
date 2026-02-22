@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::types::UsageEntry;
 
+#[must_use]
 pub fn deduplicate(entries: Vec<UsageEntry>) -> Vec<UsageEntry> {
     let mut seen: HashSet<String> = HashSet::with_capacity(entries.len());
     let mut result = Vec::with_capacity(entries.len());
