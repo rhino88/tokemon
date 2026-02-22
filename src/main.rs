@@ -2,17 +2,19 @@ use chrono::Utc;
 use clap::Parser;
 
 mod aggregator;
+mod cache;
 mod cli;
 mod config;
 mod dedup;
 mod error;
-mod parse_utils;
 mod output;
+mod parse_utils;
 mod paths;
 mod pricing;
 mod provider;
 mod types;
 
+use cache::Cache;
 use cli::{Cli, Commands};
 use config::Config;
 use provider::ProviderRegistry;
@@ -72,8 +74,8 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
         &cli.providers
     };
 
-    // Parse entries from providers
-    let mut entries = registry.all_entries(provider_filter)?;
+    // Parse entries, using cache for speed
+    let mut entries = parse_with_cache(&registry, provider_filter)?;
 
     if entries.is_empty() {
         if cli.json {
@@ -151,4 +153,108 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Parse entries using cache. Strategy:
+/// 1. Get all cached (file, mtime) pairs in one query
+/// 2. Discover provider files and check which have changed
+/// 3. Only parse changed files, store results in cache
+/// 4. Load everything from cache in one bulk query
+fn parse_with_cache(
+    registry: &ProviderRegistry,
+    filter: &[String],
+) -> anyhow::Result<Vec<types::UsageEntry>> {
+    let cache = match Cache::open() {
+        Ok(c) => Some(c),
+        Err(e) => {
+            eprintln!("[tokemon] Warning: cache unavailable ({}); parsing all files", e);
+            None
+        }
+    };
+
+    let providers: Vec<&dyn provider::Provider> = if filter.is_empty() {
+        registry.available()
+    } else {
+        let mut selected = Vec::new();
+        for name in filter {
+            match registry.get(name) {
+                Some(p) => selected.push(p),
+                None => {
+                    return Err(error::TokemonError::ProviderNotFound(name.clone()).into())
+                }
+            }
+        }
+        selected
+    };
+
+    // Get cached file mtimes in one bulk query
+    let cached_mtimes = cache
+        .as_ref()
+        .map(|c| c.cached_file_mtimes())
+        .unwrap_or_default();
+
+    // Find files that need (re)parsing
+    let mut files_to_parse: Vec<(&dyn provider::Provider, std::path::PathBuf, i64)> = Vec::new();
+
+    for provider in &providers {
+        for file in provider.discover_files() {
+            let mtime = cache::file_mtime_secs(&file).unwrap_or(0);
+            let file_key = file.display().to_string();
+
+            match cached_mtimes.get(&file_key) {
+                Some(&cached_mtime) if cached_mtime == mtime => {
+                    // Cache is fresh, skip
+                }
+                _ => {
+                    // New or modified file
+                    files_to_parse.push((*provider, file, mtime));
+                }
+            }
+        }
+    }
+
+    // Parse changed files and update cache
+    if !files_to_parse.is_empty() {
+        if let Some(ref cache) = cache {
+            let _ = cache.begin();
+        }
+
+        for (provider, file, mtime) in &files_to_parse {
+            match provider.parse_file(file) {
+                Ok(entries) => {
+                    if let Some(ref cache) = cache {
+                        if let Err(e) = cache.store_file_entries(file, *mtime, &entries) {
+                            eprintln!("[tokemon] Warning: cache write failed: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[tokemon] Warning: failed to parse {}: {}", file.display(), e);
+                }
+            }
+        }
+
+        if let Some(ref cache) = cache {
+            let _ = cache.commit();
+        }
+    }
+
+    // Load all entries from cache in one bulk query
+    let mut all_entries = if let Some(ref cache) = cache {
+        cache.load_all_entries()?
+    } else {
+        // No cache — parse everything directly
+        let mut entries = Vec::new();
+        for provider in &providers {
+            match provider.parse_all() {
+                Ok(e) => entries.extend(e),
+                Err(e) => eprintln!("[tokemon] Warning: {}: {}", provider.name(), e),
+            }
+        }
+        entries
+    };
+
+    all_entries = dedup::deduplicate(all_entries);
+    all_entries.sort_by_key(|e| e.timestamp);
+    Ok(all_entries)
 }

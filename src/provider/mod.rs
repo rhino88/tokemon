@@ -114,41 +114,4 @@ impl ProviderRegistry {
             .find(|p| p.name() == name)
             .map(|p| p.as_ref())
     }
-
-    /// Parse entries from all (or filtered) providers, merge, sort by timestamp
-    pub fn all_entries(&self, filter: &[String]) -> Result<Vec<UsageEntry>> {
-        let providers: Vec<&dyn Provider> = if filter.is_empty() {
-            self.available()
-        } else {
-            let mut selected = Vec::new();
-            for name in filter {
-                match self.get(name) {
-                    Some(p) => selected.push(p),
-                    None => {
-                        return Err(crate::error::TokemonError::ProviderNotFound(
-                            name.clone(),
-                        ))
-                    }
-                }
-            }
-            selected
-        };
-
-        let mut all_entries: Vec<UsageEntry> = Vec::new();
-        for provider in providers {
-            match provider.parse_all() {
-                Ok(entries) => all_entries.extend(entries),
-                Err(e) => {
-                    eprintln!(
-                        "[tokemon] Warning: failed to parse {}: {}",
-                        provider.name(),
-                        e
-                    );
-                }
-            }
-        }
-
-        all_entries.sort_by_key(|e| e.timestamp);
-        Ok(all_entries)
-    }
 }

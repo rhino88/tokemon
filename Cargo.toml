@@ -33,5 +33,8 @@ tabled = "0.17"
 # Config
 toml = "0.8"
 
+# Cache
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # HTTP (for pricing data fetch)
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"] }
