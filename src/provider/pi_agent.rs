@@ -1,120 +1,17 @@
-use std::fs;
-use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use chrono::DateTime;
-use serde::Deserialize;
-
-use crate::error::{Result, TokemonError};
 use crate::paths;
-use crate::types::UsageEntry;
 
-pub struct PiAgentProvider {
-    base_dir: PathBuf,
-}
+use super::jsonl_provider::{GenericJsonlProvider, JsonlProviderConfig};
 
-impl PiAgentProvider {
-    pub fn new() -> Self {
-        Self {
-            base_dir: paths::home_dir().join(".pi-agent/sessions"),
-        }
+pub struct PiAgentConfig;
+
+impl JsonlProviderConfig for PiAgentConfig {
+    const NAME: &'static str = "pi-agent";
+    const DISPLAY_NAME: &'static str = "Pi Agent";
+    fn base_dir() -> PathBuf {
+        paths::home_dir().join(".pi-agent/sessions")
     }
 }
 
-#[derive(Deserialize)]
-struct PiAgentLine {
-    #[serde(rename = "type")]
-    line_type: Option<String>,
-    timestamp: Option<String>,
-    model: Option<String>,
-    usage: Option<PiAgentUsage>,
-}
-
-#[derive(Deserialize)]
-struct PiAgentUsage {
-    input_tokens: Option<u64>,
-    output_tokens: Option<u64>,
-}
-
-impl super::Provider for PiAgentProvider {
-    fn name(&self) -> &str {
-        "pi-agent"
-    }
-
-    fn display_name(&self) -> &str {
-        "Pi Agent"
-    }
-
-    fn data_dir(&self) -> PathBuf {
-        self.base_dir.clone()
-    }
-
-    fn discover_files(&self) -> Vec<PathBuf> {
-        let pattern = format!("{}/**/*.jsonl", self.base_dir.display());
-        glob::glob(&pattern)
-            .map(|paths| paths.filter_map(|p| p.ok()).collect())
-            .unwrap_or_default()
-    }
-
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
-        let file = fs::File::open(path).map_err(TokemonError::Io)?;
-        let reader = BufReader::new(file);
-        let mut entries = Vec::new();
-
-        let session_id = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string());
-
-        for line in reader.lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            let parsed: PiAgentLine = match serde_json::from_str(&line) {
-                Ok(p) => p,
-                Err(_) => continue,
-            };
-
-            let line_type = parsed.line_type.as_deref().unwrap_or("");
-            if line_type != "assistant" && line_type != "response" {
-                continue;
-            }
-
-            let usage = match parsed.usage {
-                Some(u) => u,
-                None => continue,
-            };
-
-            let timestamp = match &parsed.timestamp {
-                Some(ts) => match DateTime::parse_from_rfc3339(ts) {
-                    Ok(dt) => dt.to_utc(),
-                    Err(_) => continue,
-                },
-                None => continue,
-            };
-
-            entries.push(UsageEntry {
-                timestamp,
-                provider: "pi-agent".to_string(),
-                model: parsed.model,
-                input_tokens: usage.input_tokens.unwrap_or(0),
-                output_tokens: usage.output_tokens.unwrap_or(0),
-                cache_read_tokens: 0,
-                cache_creation_tokens: 0,
-                thinking_tokens: 0,
-                cost_usd: None,
-                message_id: None,
-                request_id: None,
-                session_id: session_id.clone(),
-            });
-        }
-
-        Ok(entries)
-    }
-}
+pub type PiAgentProvider = GenericJsonlProvider<PiAgentConfig>;

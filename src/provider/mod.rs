@@ -3,6 +3,7 @@ pub mod claude_code;
 pub mod cline;
 pub mod cline_format;
 pub mod codex;
+pub mod jsonl_provider;
 pub mod copilot;
 pub mod cursor;
 pub mod droid;
