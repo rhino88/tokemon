@@ -71,8 +71,8 @@ impl PricingEngine {
         }
 
         let model = match &entry.model {
-            Some(m) => m.as_str(),
-            None => return 0.0,
+            Some(m) if !m.is_empty() => m.as_str(),
+            _ => return 0.0,
         };
 
         let pricing = match self.find_pricing(model) {

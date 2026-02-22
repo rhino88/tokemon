@@ -136,7 +136,15 @@ impl super::Provider for CodexProvider {
                     let raw_input = usage.input_tokens.unwrap_or(0);
                     let cached = usage.cached_input_tokens.unwrap_or(0);
                     // Codex input_tokens includes cached tokens
-                    let actual_input = raw_input.saturating_sub(cached);
+                    let actual_input = if cached > raw_input {
+                        eprintln!(
+                            "[tokemon] Warning: cached tokens ({}) > input tokens ({}) in {}",
+                            cached, raw_input, path.display()
+                        );
+                        0
+                    } else {
+                        raw_input - cached
+                    };
 
                     entries.push(UsageEntry {
                         timestamp,

@@ -185,7 +185,7 @@ fn test_dedup_key_generation() {
         request_id: Some("req_1".to_string()),
         session_id: None,
     };
-    assert_eq!(entry_both.dedup_key(), Some("msg_1:req_1".to_string()));
+    assert_eq!(entry_both.dedup_key(), Some("msg_1\0req_1".to_string()));
 
     let entry_msg_only = UsageEntry {
         message_id: Some("msg_2".to_string()),
@@ -194,7 +194,7 @@ fn test_dedup_key_generation() {
     };
     assert_eq!(
         entry_msg_only.dedup_key(),
-        Some("msg_2:model-a:100:50".to_string())
+        Some("msg_2\0model-a\0100\050".to_string())
     );
 
     let entry_none = UsageEntry {

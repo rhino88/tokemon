@@ -32,12 +32,13 @@ impl UsageEntry {
     /// Returns None if neither field is present (entry kept unconditionally).
     #[must_use]
     pub fn dedup_key(&self) -> Option<String> {
+        // Use \0 separator to prevent collisions when IDs contain ':'
         match (&self.message_id, &self.request_id) {
-            (Some(msg), Some(req)) => Some(format!("{}:{}", msg, req)),
+            (Some(msg), Some(req)) => Some(format!("{}\0{}", msg, req)),
             (Some(msg), None) => {
                 let model = self.model.as_deref().unwrap_or("unknown");
                 Some(format!(
-                    "{}:{}:{}:{}",
+                    "{}\0{}\0{}\0{}",
                     msg, model, self.input_tokens, self.output_tokens
                 ))
             }
