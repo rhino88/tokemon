@@ -1,0 +1,31 @@
+{
+  "messages": [
+    {
+      "type": "user",
+      "timestamp": "2026-02-20T10:00:00.000Z",
+      "content": "Hello"
+    },
+    {
+      "type": "gemini",
+      "model": "gemini-2.5-flash",
+      "timestamp": "2026-02-20T10:00:05.000Z",
+      "tokens": {
+        "input": 150,
+        "output": 75,
+        "cached": 30,
+        "thoughts": 20
+      }
+    },
+    {
+      "type": "gemini",
+      "model": "gemini-2.5-flash",
+      "timestamp": "2026-02-20T10:01:05.000Z",
+      "tokens": {
+        "input": 200,
+        "output": 100,
+        "cached": 0,
+        "thoughts": 50
+      }
+    }
+  ]
+}

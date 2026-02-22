@@ -1,0 +1,20 @@
+[
+  {
+    "type": "say",
+    "ts": 1740052800000,
+    "say": "api_req_started",
+    "text": "{\"tokensIn\": 500, \"tokensOut\": 200, \"cacheWrites\": 100, \"cacheReads\": 50, \"cost\": 0.015, \"model\": \"claude-sonnet-4-20250514\"}"
+  },
+  {
+    "type": "say",
+    "ts": 1740052860000,
+    "say": "text",
+    "text": "Some output text"
+  },
+  {
+    "type": "say",
+    "ts": 1740052900000,
+    "say": "api_req_started",
+    "text": "{\"tokensIn\": 800, \"tokensOut\": 300, \"cacheWrites\": 200, \"cacheReads\": 100, \"cost\": 0.025, \"model\": \"claude-sonnet-4-20250514\"}"
+  }
+]
