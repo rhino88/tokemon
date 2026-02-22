@@ -58,8 +58,8 @@ impl super::Provider for GeminiProvider {
     fn discover_files(&self) -> Vec<PathBuf> {
         // Check both patterns
         let patterns = [
-            format!("{}/**/chats/session-*.json", self.base_dir.join("tmp").display()),
-            format!("{}/**/session.json", self.base_dir.join("tmp").display()),
+            self.base_dir.join("tmp/**/chats/session-*.json").display().to_string(),
+            self.base_dir.join("tmp/**/session.json").display().to_string(),
         ];
 
         let mut files = Vec::new();

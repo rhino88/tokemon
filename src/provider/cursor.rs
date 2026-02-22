@@ -31,7 +31,7 @@ impl super::Provider for CursorProvider {
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        let pattern = format!("{}/usage*.csv", self.base_dir.display());
+        let pattern = self.base_dir.join("usage*.csv").display().to_string();
         glob::glob(&pattern)
             .map(|paths| paths.filter_map(|p| p.ok()).collect())
             .unwrap_or_default()

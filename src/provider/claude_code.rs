@@ -60,7 +60,7 @@ impl super::Provider for ClaudeCodeProvider {
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        let pattern = format!("{}/**/*.jsonl", self.base_dir.display());
+        let pattern = self.base_dir.join("**/*.jsonl").display().to_string();
         glob::glob(&pattern)
             .map(|paths| paths.filter_map(|p| p.ok()).collect())
             .unwrap_or_default()

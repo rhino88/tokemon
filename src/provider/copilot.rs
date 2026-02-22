@@ -42,10 +42,10 @@ impl super::Provider for CopilotProvider {
         for storage_dir in storage_dirs {
             if let Some(parent) = storage_dir.parent() {
                 let ws_storage = parent.join("workspaceStorage");
-                let pattern = format!(
-                    "{}/*/chatSessions/*.json",
-                    ws_storage.display()
-                );
+                let pattern = ws_storage
+                    .join("*/chatSessions/*.json")
+                    .display()
+                    .to_string();
                 if let Ok(paths) = glob::glob(&pattern) {
                     files.extend(paths.filter_map(|p| p.ok()));
                 }

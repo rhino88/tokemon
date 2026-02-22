@@ -57,7 +57,7 @@ impl super::Provider for QwenProvider {
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        let pattern = format!("{}/**/session.json", self.base_dir.join("tmp").display());
+        let pattern = self.base_dir.join("tmp/**/session.json").display().to_string();
         glob::glob(&pattern)
             .map(|paths| paths.filter_map(|p| p.ok()).collect())
             .unwrap_or_default()

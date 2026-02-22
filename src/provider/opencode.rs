@@ -56,7 +56,7 @@ impl super::Provider for OpenCodeProvider {
     fn discover_files(&self) -> Vec<PathBuf> {
         let mut files = Vec::new();
         for dir in &self.dirs {
-            let pattern = format!("{}/**/msg_*.json", dir.display());
+            let pattern = dir.join("**/msg_*.json").display().to_string();
             if let Ok(paths) = glob::glob(&pattern) {
                 files.extend(paths.filter_map(|p| p.ok()));
             }

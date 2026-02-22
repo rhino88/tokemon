@@ -40,11 +40,11 @@ impl ClineFormatParser {
         let mut files = Vec::new();
 
         for storage_dir in storage_dirs {
-            let pattern = format!(
-                "{}/{}/tasks/*/ui_messages.json",
-                storage_dir.display(),
-                self.extension_id
-            );
+            let pattern = storage_dir
+                .join(self.extension_id)
+                .join("tasks/*/ui_messages.json")
+                .display()
+                .to_string();
             if let Ok(paths) = glob::glob(&pattern) {
                 files.extend(paths.filter_map(|p| p.ok()));
             }
