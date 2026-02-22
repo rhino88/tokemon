@@ -88,7 +88,10 @@ impl Config {
         let path = Self::config_path();
         match fs::read_to_string(&path) {
             Ok(content) => match toml::from_str(&content) {
-                Ok(config) => config,
+                Ok(config) => {
+                    let config: Config = config;
+                    config.validated()
+                }
                 Err(e) => {
                     eprintln!(
                         "[tokemon] Warning: failed to parse {}: {}; using defaults",
@@ -100,6 +103,37 @@ impl Config {
             },
             Err(_) => Self::default(),
         }
+    }
+
+    /// Validate config values, replacing invalid ones with defaults
+    fn validated(mut self) -> Self {
+        let defaults = Self::default();
+
+        if !["daily", "weekly", "monthly"].contains(&self.default_command.as_str()) {
+            eprintln!(
+                "[tokemon] Warning: invalid default_command '{}'; using '{}'",
+                self.default_command, defaults.default_command
+            );
+            self.default_command = defaults.default_command;
+        }
+
+        if !["table", "json"].contains(&self.default_format.as_str()) {
+            eprintln!(
+                "[tokemon] Warning: invalid default_format '{}'; using '{}'",
+                self.default_format, defaults.default_format
+            );
+            self.default_format = defaults.default_format;
+        }
+
+        if !["asc", "desc"].contains(&self.sort_order.as_str()) {
+            eprintln!(
+                "[tokemon] Warning: invalid sort_order '{}'; using '{}'",
+                self.sort_order, defaults.sort_order
+            );
+            self.sort_order = defaults.sort_order;
+        }
+
+        self
     }
 
     /// Write the default config to disk (for `tokemon init`)
