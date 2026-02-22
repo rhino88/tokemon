@@ -113,11 +113,8 @@ impl Config {
     pub fn load() -> Self {
         let path = Self::config_path();
         match fs::read_to_string(&path) {
-            Ok(content) => match toml::from_str(&content) {
-                Ok(config) => {
-                    let config: Config = config;
-                    config.validated()
-                }
+            Ok(content) => match toml::from_str::<Config>(&content) {
+                Ok(config) => config.validated(),
                 Err(e) => {
                     eprintln!(
                         "[tokemon] Warning: failed to parse {}: {}; using defaults",
@@ -135,7 +132,7 @@ impl Config {
     fn validated(mut self) -> Self {
         let defaults = Self::default();
 
-        if !["daily", "weekly", "monthly"].contains(&self.default_command.as_str()) {
+        if !matches!(self.default_command.as_str(), "daily" | "weekly" | "monthly") {
             eprintln!(
                 "[tokemon] Warning: invalid default_command '{}'; using '{}'",
                 self.default_command, defaults.default_command
@@ -143,7 +140,7 @@ impl Config {
             self.default_command = defaults.default_command;
         }
 
-        if !["table", "json"].contains(&self.default_format.as_str()) {
+        if !matches!(self.default_format.as_str(), "table" | "json") {
             eprintln!(
                 "[tokemon] Warning: invalid default_format '{}'; using '{}'",
                 self.default_format, defaults.default_format
@@ -151,7 +148,7 @@ impl Config {
             self.default_format = defaults.default_format;
         }
 
-        if !["asc", "desc"].contains(&self.sort_order.as_str()) {
+        if !matches!(self.sort_order.as_str(), "asc" | "desc") {
             eprintln!(
                 "[tokemon] Warning: invalid sort_order '{}'; using '{}'",
                 self.sort_order, defaults.sort_order

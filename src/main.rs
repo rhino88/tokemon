@@ -133,7 +133,7 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect();
-    providers_found.sort();
+    providers_found.sort_unstable();
 
     let mut summaries = match period {
         "weekly" => aggregator::aggregate_weekly(&entries),
@@ -186,22 +186,15 @@ fn cmd_statusline(cli: &Cli, config: &Config, period: cli::StatuslinePeriod) -> 
         cli::StatuslinePeriod::Month => "this month",
     };
 
-    let total_cost: f64 = entries
+    let mut providers_seen = std::collections::HashSet::new();
+    let (total_cost, total_tokens) = entries
         .iter()
         .filter(|e| e.timestamp.date_naive() >= since)
-        .filter_map(|e| e.cost_usd)
-        .sum();
-    let total_tokens: u64 = entries
-        .iter()
-        .filter(|e| e.timestamp.date_naive() >= since)
-        .map(|e| e.total_tokens())
-        .sum();
-    let provider_count = entries
-        .iter()
-        .filter(|e| e.timestamp.date_naive() >= since)
-        .map(|e| e.provider.as_str())
-        .collect::<std::collections::HashSet<_>>()
-        .len();
+        .fold((0.0f64, 0u64), |(cost, tokens), e| {
+            providers_seen.insert(e.provider.as_str());
+            (cost + e.cost_usd.unwrap_or(0.0), tokens + e.total_tokens())
+        });
+    let provider_count = providers_seen.len();
 
     // Append budget info if configured
     let budget_str = if config.budget.daily.is_some()

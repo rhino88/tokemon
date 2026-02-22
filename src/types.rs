@@ -75,6 +75,16 @@ pub struct DailySummary {
     pub total_requests: u64,
 }
 
+impl DailySummary {
+    pub fn total_cache_creation(&self) -> u64 {
+        self.models.iter().map(|m| m.cache_creation_tokens).sum()
+    }
+
+    pub fn total_cache_read(&self) -> u64 {
+        self.models.iter().map(|m| m.cache_read_tokens).sum()
+    }
+}
+
 /// Full report structure (serializable to JSON)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {

@@ -147,20 +147,8 @@ fn print_compact_table(report: &Report) {
             models: models_str,
             input: format_tokens(summary.total_input),
             output: format_tokens(summary.total_output),
-            cache_write: format_tokens(
-                summary
-                    .models
-                    .iter()
-                    .map(|m| m.cache_creation_tokens)
-                    .sum(),
-            ),
-            cache_read: format_tokens(
-                summary
-                    .models
-                    .iter()
-                    .map(|m| m.cache_read_tokens)
-                    .sum(),
-            ),
+            cache_write: format_tokens(summary.total_cache_creation()),
+            cache_read: format_tokens(summary.total_cache_read()),
             total_tokens: format_tokens(total),
             cost: format_cost(summary.total_cost),
         });
@@ -189,28 +177,10 @@ fn print_compact_table(report: &Report) {
 fn grand_totals(report: &Report) -> (u64, u64, u64, u64, u64) {
     let gi: u64 = report.summaries.iter().map(|s| s.total_input).sum();
     let go: u64 = report.summaries.iter().map(|s| s.total_output).sum();
-    let gcw: u64 = report
-        .summaries
-        .iter()
-        .flat_map(|s| s.models.iter())
-        .map(|m| m.cache_creation_tokens)
-        .sum();
-    let gcr: u64 = report
-        .summaries
-        .iter()
-        .flat_map(|s| s.models.iter())
-        .map(|m| m.cache_read_tokens)
-        .sum();
-    let gt = gi
-        + go
-        + gcw
-        + gcr
-        + report
-            .summaries
-            .iter()
-            .map(|s| s.total_thinking)
-            .sum::<u64>();
-    (gi, go, gcw, gcr, gt)
+    let gcw: u64 = report.summaries.iter().map(|s| s.total_cache_creation()).sum();
+    let gcr: u64 = report.summaries.iter().map(|s| s.total_cache_read()).sum();
+    let gth: u64 = report.summaries.iter().map(|s| s.total_thinking).sum();
+    (gi, go, gcw, gcr, gi + go + gcw + gcr + gth)
 }
 
 pub fn print_statusline(total_cost: f64, total_tokens: u64, provider_count: usize, period_label: &str) {
