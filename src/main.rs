@@ -147,7 +147,7 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
         output::print_json(&report);
     } else {
         let breakdown = cli.display_mode(config) == cli::DisplayMode::Breakdown;
-        output::print_table(&report, breakdown, &config.columns);
+        output::print_table(&report, breakdown);
     }
 
     Ok(())

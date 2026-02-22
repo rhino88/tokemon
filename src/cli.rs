@@ -9,6 +9,14 @@ pub enum DisplayMode {
     Compact,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SortOrder {
+    /// Oldest first
+    Asc,
+    /// Newest first
+    Desc,
+}
+
 #[derive(Parser)]
 #[command(name = "tokemon", version, about = "Unified LLM token usage tracking across all providers")]
 pub struct Cli {
@@ -44,8 +52,8 @@ pub struct Cli {
     pub offline: bool,
 
     /// Sort order: asc (oldest first) or desc (newest first)
-    #[arg(short = 'o', long, global = true)]
-    pub order: Option<String>,
+    #[arg(short = 'o', long, global = true, value_enum)]
+    pub order: Option<SortOrder>,
 }
 
 impl Cli {
@@ -62,8 +70,9 @@ impl Cli {
 
     /// Whether to use descending sort order
     pub fn is_desc(&self, config: &crate::config::Config) -> bool {
-        match &self.order {
-            Some(o) => o == "desc",
+        match self.order {
+            Some(SortOrder::Desc) => true,
+            Some(SortOrder::Asc) => false,
             None => config.sort_order == "desc",
         }
     }

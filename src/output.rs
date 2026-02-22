@@ -4,7 +4,6 @@ use tabled::settings::object::Columns;
 use tabled::settings::{Alignment, Modify, Style};
 use tabled::{Table, Tabled};
 
-use crate::config::ColumnConfig;
 use crate::types::Report;
 
 /// Breakdown mode: one row per model per date
@@ -63,7 +62,7 @@ struct DiscoverRow {
     files: String,
 }
 
-pub fn print_table(report: &Report, breakdown: bool, _columns: &ColumnConfig) {
+pub fn print_table(report: &Report, breakdown: bool) {
     if report.summaries.is_empty() {
         println!("No usage data found.");
         return;
