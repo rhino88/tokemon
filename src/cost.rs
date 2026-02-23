@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
 const PRICING_URL: &str =
     "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
@@ -62,7 +62,7 @@ impl PricingEngine {
         }
     }
 
-    pub fn calculate_cost(&self, entry: &UsageEntry) -> f64 {
+    pub fn calculate_cost(&self, entry: &Record) -> f64 {
         // If entry already has a cost, use it
         if let Some(cost) = entry.cost_usd {
             if cost > 0.0 {
@@ -91,7 +91,7 @@ impl PricingEngine {
     }
 
     /// Apply costs to all entries in-place
-    pub fn apply_costs(&self, entries: &mut [UsageEntry]) {
+    pub fn apply_costs(&self, entries: &mut [Record]) {
         for entry in entries.iter_mut() {
             let cost = self.calculate_cost(entry);
             entry.cost_usd = Some(cost);

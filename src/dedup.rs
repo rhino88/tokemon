@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
-use crate::types::UsageEntry;
+use crate::types::Record;
 
 #[must_use]
-pub fn deduplicate(entries: Vec<UsageEntry>) -> Vec<UsageEntry> {
+pub fn deduplicate(entries: Vec<Record>) -> Vec<Record> {
     let mut seen: HashSet<String> = HashSet::with_capacity(entries.len());
     let mut result = Vec::with_capacity(entries.len());
 

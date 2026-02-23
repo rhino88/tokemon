@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use chrono::{Datelike, NaiveDate};
 
-use crate::types::{DailySummary, ModelUsage, UsageEntry};
+use crate::types::{DailySummary, ModelUsage, Record};
 
 /// Group entries by date, then by model within each date
-pub fn aggregate_daily(entries: &[UsageEntry]) -> Vec<DailySummary> {
+pub fn aggregate_daily(entries: &[Record]) -> Vec<DailySummary> {
     let grouped = group_by_date(entries, |e| {
         let date = e.timestamp.date_naive();
         (date, date.format("%Y-%m-%d").to_string())
@@ -14,7 +14,7 @@ pub fn aggregate_daily(entries: &[UsageEntry]) -> Vec<DailySummary> {
 }
 
 /// Group entries by ISO week
-pub fn aggregate_weekly(entries: &[UsageEntry]) -> Vec<DailySummary> {
+pub fn aggregate_weekly(entries: &[Record]) -> Vec<DailySummary> {
     let grouped = group_by_date(entries, |e| {
         let date = e.timestamp.date_naive();
         let iso = date.iso_week();
@@ -37,7 +37,7 @@ pub fn aggregate_weekly(entries: &[UsageEntry]) -> Vec<DailySummary> {
 }
 
 /// Group entries by month
-pub fn aggregate_monthly(entries: &[UsageEntry]) -> Vec<DailySummary> {
+pub fn aggregate_monthly(entries: &[Record]) -> Vec<DailySummary> {
     let grouped = group_by_date(entries, |e| {
         let date = e.timestamp.date_naive();
         let first = NaiveDate::from_ymd_opt(date.year(), date.month(), 1).unwrap_or(date);
@@ -49,10 +49,10 @@ pub fn aggregate_monthly(entries: &[UsageEntry]) -> Vec<DailySummary> {
 
 /// Apply date range filter
 pub fn filter_by_date(
-    entries: Vec<UsageEntry>,
+    entries: Vec<Record>,
     since: Option<NaiveDate>,
     until: Option<NaiveDate>,
-) -> Vec<UsageEntry> {
+) -> Vec<Record> {
     entries
         .into_iter()
         .filter(|e| {
@@ -63,13 +63,13 @@ pub fn filter_by_date(
 }
 
 fn group_by_date<F>(
-    entries: &[UsageEntry],
+    entries: &[Record],
     key_fn: F,
-) -> BTreeMap<NaiveDate, (String, Vec<&UsageEntry>)>
+) -> BTreeMap<NaiveDate, (String, Vec<&Record>)>
 where
-    F: Fn(&UsageEntry) -> (NaiveDate, String),
+    F: Fn(&Record) -> (NaiveDate, String),
 {
-    let mut grouped: BTreeMap<NaiveDate, (String, Vec<&UsageEntry>)> = BTreeMap::new();
+    let mut grouped: BTreeMap<NaiveDate, (String, Vec<&Record>)> = BTreeMap::new();
     for entry in entries {
         let (date, label) = key_fn(entry);
         grouped
@@ -82,7 +82,7 @@ where
 }
 
 fn build_summaries(
-    grouped: BTreeMap<NaiveDate, (String, Vec<&UsageEntry>)>,
+    grouped: BTreeMap<NaiveDate, (String, Vec<&Record>)>,
 ) -> Vec<DailySummary> {
     let mut summaries = Vec::new();
 

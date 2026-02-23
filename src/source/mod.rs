@@ -3,7 +3,7 @@ pub mod claude_code;
 pub mod cline;
 pub mod cline_format;
 pub mod codex;
-pub mod jsonl_provider;
+pub mod jsonl_source;
 pub mod copilot;
 pub mod cursor;
 pub mod droid;
@@ -23,9 +23,9 @@ use rayon::prelude::*;
 
 use crate::dedup;
 use crate::error::Result;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub trait Provider: Send + Sync {
+pub trait Source: Send + Sync {
     /// Short identifier: "claude-code", "codex", "gemini"
     fn name(&self) -> &str;
 
@@ -39,7 +39,7 @@ pub trait Provider: Send + Sync {
     fn discover_files(&self) -> Vec<PathBuf>;
 
     /// Parse one file into usage entries
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>>;
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>>;
 
     /// Whether this provider has any data
     fn is_available(&self) -> bool {
@@ -47,9 +47,9 @@ pub trait Provider: Send + Sync {
     }
 
     /// Parse all files in parallel with dedup
-    fn parse_all(&self) -> Result<Vec<UsageEntry>> {
+    fn parse_all(&self) -> Result<Vec<Record>> {
         let files = self.discover_files();
-        let all: Vec<UsageEntry> = files
+        let all: Vec<Record> = files
             .par_iter()
             .flat_map(|f| {
                 self.parse_file(f).unwrap_or_else(|e| {
@@ -62,41 +62,41 @@ pub trait Provider: Send + Sync {
     }
 }
 
-pub struct ProviderRegistry {
-    providers: Vec<Box<dyn Provider>>,
+pub struct SourceSet {
+    providers: Vec<Box<dyn Source>>,
 }
 
-impl Default for ProviderRegistry {
+impl Default for SourceSet {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ProviderRegistry {
+impl SourceSet {
     pub fn new() -> Self {
         Self {
             providers: vec![
-                Box::new(claude_code::ClaudeCodeProvider::new()),
-                Box::new(codex::CodexProvider::new()),
-                Box::new(gemini::GeminiProvider::new()),
-                Box::new(opencode::OpenCodeProvider::new()),
-                Box::new(amp::AmpProvider::new()),
-                Box::new(cline::ClineProvider::new()),
-                Box::new(roo_code::RooCodeProvider::new()),
-                Box::new(kilo_code::KiloCodeProvider::new()),
-                Box::new(copilot::CopilotProvider::new()),
-                Box::new(pi_agent::PiAgentProvider::new()),
-                Box::new(kimi::KimiProvider::new()),
-                Box::new(droid::DroidProvider::new()),
-                Box::new(openclaw::OpenClawProvider::new()),
-                Box::new(qwen::QwenProvider::new()),
-                Box::new(piebald::PiebaldProvider::new()),
-                Box::new(cursor::CursorProvider::new()),
+                Box::new(claude_code::ClaudeCodeSource::new()),
+                Box::new(codex::CodexSource::new()),
+                Box::new(gemini::GeminiSource::new()),
+                Box::new(opencode::OpenCodeSource::new()),
+                Box::new(amp::AmpSource::new()),
+                Box::new(cline::ClineSource::new()),
+                Box::new(roo_code::RooCodeSource::new()),
+                Box::new(kilo_code::KiloCodeSource::new()),
+                Box::new(copilot::CopilotSource::new()),
+                Box::new(pi_agent::PiAgentSource::new()),
+                Box::new(kimi::KimiSource::new()),
+                Box::new(droid::DroidSource::new()),
+                Box::new(openclaw::OpenClawSource::new()),
+                Box::new(qwen::QwenSource::new()),
+                Box::new(piebald::PiebaldSource::new()),
+                Box::new(cursor::CursorSource::new()),
             ],
         }
     }
 
-    pub fn available(&self) -> Vec<&dyn Provider> {
+    pub fn available(&self) -> Vec<&dyn Source> {
         self.providers
             .iter()
             .filter(|p| p.is_available())
@@ -104,11 +104,11 @@ impl ProviderRegistry {
             .collect()
     }
 
-    pub fn all_providers(&self) -> Vec<&dyn Provider> {
+    pub fn all(&self) -> Vec<&dyn Source> {
         self.providers.iter().map(|p| p.as_ref()).collect()
     }
 
-    pub fn get(&self, name: &str) -> Option<&dyn Provider> {
+    pub fn get(&self, name: &str) -> Option<&dyn Source> {
         self.providers
             .iter()
             .find(|p| p.name() == name)

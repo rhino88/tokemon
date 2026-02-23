@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use crate::paths;
 
-use super::jsonl_provider::{GenericJsonlProvider, JsonlProviderConfig};
+use super::jsonl_source::{JsonlSource, JsonlSourceConfig};
 
 pub struct AmpConfig;
 
-impl JsonlProviderConfig for AmpConfig {
+impl JsonlSourceConfig for AmpConfig {
     const NAME: &'static str = "amp";
     const DISPLAY_NAME: &'static str = "Amp";
     const HAS_CACHE_TOKENS: bool = true;
@@ -16,4 +16,4 @@ impl JsonlProviderConfig for AmpConfig {
     }
 }
 
-pub type AmpProvider = GenericJsonlProvider<AmpConfig>;
+pub type AmpSource = JsonlSource<AmpConfig>;

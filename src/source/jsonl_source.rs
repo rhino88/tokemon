@@ -6,22 +6,22 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
-use crate::parse_utils;
-use crate::types::UsageEntry;
+use crate::timestamp;
+use crate::types::Record;
 
-/// Configuration trait for generic JSONL providers.
+/// Configuration trait for generic JSONL sources.
 ///
-/// Implement this with a zero-sized type to define a new provider:
+/// Implement this with a zero-sized type to define a new source:
 /// ```ignore
 /// pub struct KimiConfig;
-/// impl JsonlProviderConfig for KimiConfig {
+/// impl JsonlSourceConfig for KimiConfig {
 ///     const NAME: &'static str = "kimi";
 ///     const DISPLAY_NAME: &'static str = "Kimi";
 ///     fn base_dir() -> PathBuf { paths::home_dir().join(".kimi/sessions") }
 /// }
-/// pub type KimiProvider = GenericJsonlProvider<KimiConfig>;
+/// pub type KimiSource = JsonlSource<KimiConfig>;
 /// ```
-pub trait JsonlProviderConfig: Send + Sync + 'static {
+pub trait JsonlSourceConfig: Send + Sync + 'static {
     const NAME: &'static str;
     const DISPLAY_NAME: &'static str;
     const HAS_CACHE_TOKENS: bool = false;
@@ -29,17 +29,17 @@ pub trait JsonlProviderConfig: Send + Sync + 'static {
     fn base_dir() -> PathBuf;
 }
 
-/// Generic JSONL provider that handles the common pattern of:
+/// Generic JSONL source that handles the common pattern of:
 /// - Reading `**/*.jsonl` files from a base directory
 /// - Parsing lines with `type`, `timestamp`, `model`, `usage` fields
 /// - Filtering for "assistant" or "response" type lines
 /// - Extracting token counts from usage data
-pub struct GenericJsonlProvider<C: JsonlProviderConfig> {
+pub struct JsonlSource<C: JsonlSourceConfig> {
     base_dir: PathBuf,
     _config: PhantomData<C>,
 }
 
-impl<C: JsonlProviderConfig> GenericJsonlProvider<C> {
+impl<C: JsonlSourceConfig> JsonlSource<C> {
     pub fn new() -> Self {
         Self {
             base_dir: C::base_dir(),
@@ -71,7 +71,7 @@ struct JsonlUsage {
     cache_creation_tokens: Option<u64>,
 }
 
-impl<C: JsonlProviderConfig> super::Provider for GenericJsonlProvider<C> {
+impl<C: JsonlSourceConfig> super::Source for JsonlSource<C> {
     fn name(&self) -> &str {
         C::NAME
     }
@@ -91,10 +91,10 @@ impl<C: JsonlProviderConfig> super::Provider for GenericJsonlProvider<C> {
             .unwrap_or_default()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let file = fs::File::open(path).map_err(TokemonError::Io)?;
         let reader = BufReader::new(file);
-        let session_id = parse_utils::extract_session_id(path);
+        let session_id = timestamp::extract_session_id(path);
 
         let entries = reader
             .lines()
@@ -112,9 +112,9 @@ impl<C: JsonlProviderConfig> super::Provider for GenericJsonlProvider<C> {
                 let timestamp = parsed
                     .timestamp
                     .as_deref()
-                    .and_then(parse_utils::parse_timestamp)?;
+                    .and_then(timestamp::parse_timestamp)?;
 
-                Some(UsageEntry {
+                Some(Record {
                     timestamp,
                     provider: C::NAME.to_string(),
                     model: parsed.model,

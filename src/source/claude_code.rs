@@ -5,15 +5,15 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
-use crate::parse_utils;
+use crate::timestamp;
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct ClaudeCodeProvider {
+pub struct ClaudeCodeSource {
     base_dir: PathBuf,
 }
 
-impl ClaudeCodeProvider {
+impl ClaudeCodeSource {
     pub fn new() -> Self {
         Self {
             base_dir: paths::home_dir().join(".claude/projects"),
@@ -46,7 +46,7 @@ struct ClaudeUsage {
     cache_read_input_tokens: Option<u64>,
 }
 
-impl super::Provider for ClaudeCodeProvider {
+impl super::Source for ClaudeCodeSource {
     fn name(&self) -> &str {
         "claude-code"
     }
@@ -66,10 +66,10 @@ impl super::Provider for ClaudeCodeProvider {
             .unwrap_or_default()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let file = fs::File::open(path).map_err(TokemonError::Io)?;
         let reader = BufReader::new(file);
-        let session_id = parse_utils::extract_session_id(path);
+        let session_id = timestamp::extract_session_id(path);
 
         let entries = reader
             .lines()
@@ -86,9 +86,9 @@ impl super::Provider for ClaudeCodeProvider {
                 let timestamp = parsed
                     .timestamp
                     .as_deref()
-                    .and_then(parse_utils::parse_timestamp)?;
+                    .and_then(timestamp::parse_timestamp)?;
 
-                Some(UsageEntry {
+                Some(Record {
                     timestamp,
                     provider: "claude-code".to_string(),
                     model: message.model,

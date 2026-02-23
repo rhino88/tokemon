@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use crate::paths;
 
-use super::jsonl_provider::{GenericJsonlProvider, JsonlProviderConfig};
+use super::jsonl_source::{JsonlSource, JsonlSourceConfig};
 
 pub struct KimiConfig;
 
-impl JsonlProviderConfig for KimiConfig {
+impl JsonlSourceConfig for KimiConfig {
     const NAME: &'static str = "kimi";
     const DISPLAY_NAME: &'static str = "Kimi";
     fn base_dir() -> PathBuf {
@@ -14,4 +14,4 @@ impl JsonlProviderConfig for KimiConfig {
     }
 }
 
-pub type KimiProvider = GenericJsonlProvider<KimiConfig>;
+pub type KimiSource = JsonlSource<KimiConfig>;

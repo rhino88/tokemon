@@ -2,13 +2,13 @@ use std::path::{Path, PathBuf};
 
 use crate::error::Result;
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct PiebaldProvider {
+pub struct PiebaldSource {
     db_path: PathBuf,
 }
 
-impl PiebaldProvider {
+impl PiebaldSource {
     pub fn new() -> Self {
         Self {
             db_path: if cfg!(target_os = "macos") {
@@ -20,7 +20,7 @@ impl PiebaldProvider {
     }
 }
 
-impl super::Provider for PiebaldProvider {
+impl super::Source for PiebaldSource {
     fn name(&self) -> &str {
         "piebald"
     }
@@ -44,7 +44,7 @@ impl super::Provider for PiebaldProvider {
         }
     }
 
-    fn parse_file(&self, _path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, _path: &Path) -> Result<Vec<Record>> {
         // SQLite parsing deferred to keep PoC dependencies minimal.
         // Would need rusqlite dependency.
         eprintln!("[tokemon] Note: Piebald SQLite parsing not yet implemented (needs rusqlite)");

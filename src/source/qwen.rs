@@ -4,51 +4,52 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
-use crate::parse_utils;
+use crate::timestamp;
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct GeminiProvider {
+pub struct QwenSource {
     base_dir: PathBuf,
 }
 
-impl GeminiProvider {
+impl QwenSource {
     pub fn new() -> Self {
         Self {
-            base_dir: paths::home_dir().join(".gemini"),
+            base_dir: paths::home_dir().join(".qwen"),
         }
     }
 }
 
+// Reuses Gemini-compatible format
 #[derive(Deserialize)]
-struct GeminiSession {
-    messages: Option<Vec<GeminiMessage>>,
+struct QwenSession {
+    messages: Option<Vec<QwenMessage>>,
 }
 
 #[derive(Deserialize)]
-struct GeminiMessage {
+struct QwenMessage {
     #[serde(rename = "type")]
     msg_type: Option<String>,
     model: Option<String>,
     timestamp: Option<String>,
-    tokens: Option<GeminiTokens>,
+    tokens: Option<QwenTokens>,
 }
 
 #[derive(Deserialize)]
-struct GeminiTokens {
+struct QwenTokens {
     input: Option<u64>,
     output: Option<u64>,
     cached: Option<u64>,
     thoughts: Option<u64>,
 }
 
-impl super::Provider for GeminiProvider {
+impl super::Source for QwenSource {
     fn name(&self) -> &str {
-        "gemini"
+        "qwen"
     }
 
     fn display_name(&self) -> &str {
-        "Gemini CLI"
+        "Qwen Code"
     }
 
     fn data_dir(&self) -> PathBuf {
@@ -56,54 +57,47 @@ impl super::Provider for GeminiProvider {
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        // Check both patterns
-        let patterns = [
-            self.base_dir.join("tmp/**/chats/session-*.json").display().to_string(),
-            self.base_dir.join("tmp/**/session.json").display().to_string(),
-        ];
-
-        let mut files = Vec::new();
-        for pattern in &patterns {
-            if let Ok(paths) = glob::glob(pattern) {
-                files.extend(paths.filter_map(|p| p.ok()));
-            }
-        }
-        files
+        let pattern = self.base_dir.join("tmp/**/session.json").display().to_string();
+        glob::glob(&pattern)
+            .map(|paths| paths.filter_map(|p| p.ok()).collect())
+            .unwrap_or_default()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let content = fs::read_to_string(path).map_err(TokemonError::Io)?;
-        let session: GeminiSession = serde_json::from_str(&content).map_err(|e| {
-            TokemonError::JsonParse {
+        let session: QwenSession =
+            serde_json::from_str(&content).map_err(|e| TokemonError::JsonParse {
                 file: path.display().to_string(),
                 source: e,
-            }
-        })?;
+            })?;
 
         let Some(messages) = session.messages else {
             return Ok(Vec::new());
         };
 
-        let session_id = parse_utils::extract_session_id(path);
+        // Qwen uses parent dir as session ID (file is always session.json)
+        let session_id = path
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
+            .map(String::from);
 
         let entries = messages
             .into_iter()
             .filter(|msg| {
                 let t = msg.msg_type.as_deref().unwrap_or("");
-                t.eq_ignore_ascii_case("gemini")
-                    || t.eq_ignore_ascii_case("model")
-                    || t.eq_ignore_ascii_case("assistant")
+                t.eq_ignore_ascii_case("assistant") || t.eq_ignore_ascii_case("model")
             })
             .filter_map(|msg| {
                 let tokens = msg.tokens?;
                 let timestamp = msg
                     .timestamp
                     .as_deref()
-                    .and_then(parse_utils::parse_timestamp)?;
+                    .and_then(timestamp::parse_timestamp)?;
 
-                Some(UsageEntry {
+                Some(Record {
                     timestamp,
-                    provider: "gemini".to_string(),
+                    provider: "qwen".to_string(),
                     model: msg.model,
                     input_tokens: tokens.input.unwrap_or(0),
                     output_tokens: tokens.output.unwrap_or(0),

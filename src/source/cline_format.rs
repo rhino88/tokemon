@@ -5,10 +5,10 @@ use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
 /// Shared parsing logic for Cline-derived tools (Cline, Roo Code, Kilo Code)
-pub struct ClineFormatParser {
+pub struct ClineFormat {
     pub provider_name: &'static str,
     pub extension_id: &'static str,
 }
@@ -34,7 +34,7 @@ struct ApiReqData {
     model: Option<String>,
 }
 
-impl ClineFormatParser {
+impl ClineFormat {
     pub fn discover_files(&self) -> Vec<PathBuf> {
         let storage_dirs = paths::vscode_global_storage_dirs();
         let mut files = Vec::new();
@@ -61,7 +61,7 @@ impl ClineFormatParser {
         }
     }
 
-    pub fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    pub fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let content = fs::read_to_string(path).map_err(TokemonError::Io)?;
         let messages: Vec<UiMessage> =
             serde_json::from_str(&content).map_err(|e| TokemonError::JsonParse {
@@ -83,22 +83,18 @@ impl ClineFormatParser {
                 continue;
             }
 
-            let text = match &msg.text {
-                Some(t) => t,
-                None => continue,
-            };
+            let Some(text) = &msg.text else { continue };
 
             let req_data: ApiReqData = match serde_json::from_str(text) {
                 Ok(d) => d,
                 Err(_) => continue,
             };
 
-            let timestamp = match msg.ts.and_then(crate::parse_utils::parse_timestamp_millis) {
-                Some(dt) => dt,
-                None => continue,
+            let Some(timestamp) = msg.ts.and_then(crate::timestamp::parse_timestamp_millis) else {
+                continue;
             };
 
-            entries.push(UsageEntry {
+            entries.push(Record {
                 timestamp,
                 provider: self.provider_name.to_string(),
                 model: req_data.model,

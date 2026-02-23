@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// A single usage entry from any provider
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct UsageEntry {
+pub struct Record {
     pub timestamp: DateTime<Utc>,
     pub provider: String,
     pub model: Option<String>,
@@ -18,7 +18,7 @@ pub struct UsageEntry {
     pub session_id: Option<String>,
 }
 
-impl UsageEntry {
+impl Record {
     #[must_use]
     pub fn total_tokens(&self) -> u64 {
         self.input_tokens

@@ -2,17 +2,17 @@ use std::path::{Path, PathBuf};
 
 use crate::error::Result;
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct CopilotProvider;
+pub struct CopilotSource;
 
-impl CopilotProvider {
+impl CopilotSource {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl super::Provider for CopilotProvider {
+impl super::Source for CopilotSource {
     fn name(&self) -> &str {
         "copilot"
     }
@@ -54,7 +54,7 @@ impl super::Provider for CopilotProvider {
         files
     }
 
-    fn parse_file(&self, _path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, _path: &Path) -> Result<Vec<Record>> {
         // Copilot doesn't store token counts in its session files.
         // Would need tiktoken for estimation. For PoC, return empty.
         Ok(Vec::new())

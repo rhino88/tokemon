@@ -3,13 +3,13 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Result, TokemonError};
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct CursorProvider {
+pub struct CursorSource {
     base_dir: PathBuf,
 }
 
-impl CursorProvider {
+impl CursorSource {
     pub fn new() -> Self {
         Self {
             base_dir: paths::home_dir().join(".config/tokscale/cursor-cache"),
@@ -17,7 +17,7 @@ impl CursorProvider {
     }
 }
 
-impl super::Provider for CursorProvider {
+impl super::Source for CursorSource {
     fn name(&self) -> &str {
         "cursor"
     }
@@ -37,7 +37,7 @@ impl super::Provider for CursorProvider {
             .unwrap_or_default()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let content = fs::read_to_string(path).map_err(TokemonError::Io)?;
 
         let entries = content
@@ -49,10 +49,10 @@ impl super::Provider for CursorProvider {
                     return None;
                 }
 
-                let timestamp = crate::parse_utils::parse_timestamp(fields[0].trim())?;
+                let timestamp = crate::timestamp::parse_timestamp(fields[0].trim())?;
                 let model = fields[1].trim();
 
-                Some(UsageEntry {
+                Some(Record {
                     timestamp,
                     provider: "cursor".to_string(),
                     model: if model.is_empty() { None } else { Some(model.to_string()) },

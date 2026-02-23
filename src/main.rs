@@ -1,25 +1,27 @@
 use chrono::{Datelike, NaiveDate, Utc};
 use clap::Parser;
 
-mod aggregator;
 mod cache;
 mod cli;
 mod config;
+mod cost;
 mod dedup;
 mod error;
-mod output;
 mod pacemaker;
-mod parse_utils;
 mod paths;
-mod pricing;
-mod provider;
+mod render;
+mod rollup;
+mod source;
+mod timestamp;
 mod types;
 
 use cache::Cache;
 use cli::{Cli, Commands};
 use config::Config;
-use provider::ProviderRegistry;
+use source::SourceSet;
 use types::Report;
+
+const REDISCOVERY_INTERVAL_SECS: u64 = 30;
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -39,10 +41,10 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn cmd_discover() -> anyhow::Result<()> {
-    let registry = ProviderRegistry::new();
+    let registry = SourceSet::new();
 
     let info: Vec<(&str, &str, bool, String, usize)> = registry
-        .all_providers()
+        .all()
         .iter()
         .map(|p| {
             let available = p.is_available();
@@ -56,7 +58,7 @@ fn cmd_discover() -> anyhow::Result<()> {
         })
         .collect();
 
-    output::print_discover(&info);
+    render::print_discover(&info);
     Ok(())
 }
 
@@ -81,8 +83,8 @@ fn load_and_price(
     cli: &Cli,
     config: &Config,
     force_offline: bool,
-) -> anyhow::Result<Vec<types::UsageEntry>> {
-    let registry = ProviderRegistry::new();
+) -> anyhow::Result<Vec<types::Record>> {
+    let registry = SourceSet::new();
     let filter = resolve_providers(cli, config);
     let force_refresh = cli.refresh || config.refresh;
     let force_reparse = cli.reparse || config.reparse;
@@ -91,7 +93,7 @@ fn load_and_price(
 
     if !(cli.no_cost || config.no_cost) {
         let offline = force_offline || cli.offline || config.offline;
-        match pricing::PricingEngine::load(offline) {
+        match cost::PricingEngine::load(offline) {
             Ok(engine) => engine.apply_costs(&mut entries),
             Err(e) => {
                 if !force_offline {
@@ -111,7 +113,7 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
 
     if entries.is_empty() {
         if cli.json {
-            output::print_json(&Report {
+            render::print_json(&Report {
                 period: period.to_string(),
                 generated_at: Utc::now(),
                 providers_found: Vec::new(),
@@ -128,7 +130,7 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    entries = aggregator::filter_by_date(entries, cli.since, cli.until);
+    entries = rollup::filter_by_date(entries, cli.since, cli.until);
 
     let mut providers_found: Vec<String> = entries
         .iter()
@@ -139,9 +141,9 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
     providers_found.sort_unstable();
 
     let mut summaries = match period {
-        "weekly" => aggregator::aggregate_weekly(&entries),
-        "monthly" => aggregator::aggregate_monthly(&entries),
-        _ => aggregator::aggregate_daily(&entries),
+        "weekly" => rollup::aggregate_weekly(&entries),
+        "monthly" => rollup::aggregate_monthly(&entries),
+        _ => rollup::aggregate_daily(&entries),
     };
 
     if cli.is_desc(config) {
@@ -161,10 +163,10 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
     };
 
     if cli.json {
-        output::print_json(&report);
+        render::print_json(&report);
     } else {
         let breakdown = cli.display_mode(config) == cli::DisplayMode::Breakdown;
-        output::print_table(&report, breakdown);
+        render::print_table(&report, breakdown);
     }
 
     Ok(())
@@ -218,12 +220,12 @@ fn cmd_statusline(cli: &Cli, config: &Config, period: cli::StatuslinePeriod) -> 
         Some(bs) => println!(
             "${:.2} | {} | {} | {} | {}",
             total_cost,
-            output::format_tokens_short(total_tokens),
+            render::format_tokens_short(total_tokens),
             format_provider_count(provider_count),
             period_label,
             bs
         ),
-        None => output::print_statusline(total_cost, total_tokens, provider_count, period_label),
+        None => render::print_statusline(total_cost, total_tokens, provider_count, period_label),
     }
 
     Ok(())
@@ -232,7 +234,7 @@ fn cmd_statusline(cli: &Cli, config: &Config, period: cli::StatuslinePeriod) -> 
 fn cmd_budget(cli: &Cli, config: &Config) -> anyhow::Result<()> {
     let entries = load_and_price(cli, config, false)?;
     let (daily, weekly, monthly) = pacemaker::evaluate(&entries, &config.budget);
-    output::print_budget(daily, weekly, monthly);
+    render::print_budget(daily, weekly, monthly);
     Ok(())
 }
 
@@ -263,13 +265,13 @@ fn format_provider_count(count: usize) -> String {
 /// 3. Only parse changed files, store results in cache
 /// 4. Load everything from cache in one bulk query
 fn parse_with_cache(
-    registry: &ProviderRegistry,
+    registry: &SourceSet,
     filter: &[String],
     force_refresh: bool,
     force_reparse: bool,
     since: Option<NaiveDate>,
     until: Option<NaiveDate>,
-) -> anyhow::Result<Vec<types::UsageEntry>> {
+) -> anyhow::Result<Vec<types::Record>> {
     let cache = Cache::open()
         .map_err(|e| {
             eprintln!("[tokemon] Warning: cache unavailable ({}); parsing all files", e);
@@ -277,7 +279,7 @@ fn parse_with_cache(
         })
         .ok();
 
-    let providers = resolve_provider_refs(registry, filter)?;
+    let providers = resolve_source_refs(registry, filter)?;
 
     let Some(cache) = cache else {
         return parse_all_directly(&providers);
@@ -286,7 +288,7 @@ fn parse_with_cache(
     let has_filters = since.is_some() || until.is_some() || !filter.is_empty();
 
     // If cache is fresh and no --refresh/--reparse flag, skip discovery entirely
-    if !force_refresh && !force_reparse && !cache.should_rediscover(30) {
+    if !force_refresh && !force_reparse && !cache.should_rediscover(REDISCOVERY_INTERVAL_SECS) {
         let mut entries = if has_filters {
             cache.load_entries_filtered(since, until, filter)?
         } else {
@@ -356,10 +358,10 @@ fn parse_with_cache(
     Ok(entries)
 }
 
-fn resolve_provider_refs<'a>(
-    registry: &'a ProviderRegistry,
+fn resolve_source_refs<'a>(
+    registry: &'a SourceSet,
     filter: &[String],
-) -> anyhow::Result<Vec<&'a dyn provider::Provider>> {
+) -> anyhow::Result<Vec<&'a dyn source::Source>> {
     if filter.is_empty() {
         return Ok(registry.available());
     }
@@ -375,8 +377,8 @@ fn resolve_provider_refs<'a>(
 }
 
 fn parse_all_directly(
-    providers: &[&dyn provider::Provider],
-) -> anyhow::Result<Vec<types::UsageEntry>> {
+    providers: &[&dyn source::Source],
+) -> anyhow::Result<Vec<types::Record>> {
     let mut entries = Vec::new();
     for provider in providers {
         match provider.parse_all() {

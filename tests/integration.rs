@@ -1,9 +1,9 @@
 use std::path::Path;
-use tokemon::provider::Provider;
+use tokemon::source::Source;
 
 #[test]
 fn test_claude_code_parse_fixture() {
-    let provider = tokemon::provider::claude_code::ClaudeCodeProvider::new();
+    let provider = tokemon::source::claude_code::ClaudeCodeSource::new();
     let path = Path::new("tests/fixtures/claude_sample.jsonl");
     let entries = provider.parse_file(path).unwrap();
 
@@ -33,7 +33,7 @@ fn test_claude_code_parse_fixture() {
 
 #[test]
 fn test_claude_code_dedup() {
-    let provider = tokemon::provider::claude_code::ClaudeCodeProvider::new();
+    let provider = tokemon::source::claude_code::ClaudeCodeSource::new();
     let path = Path::new("tests/fixtures/claude_sample.jsonl");
     let entries = provider.parse_file(path).unwrap();
 
@@ -47,7 +47,7 @@ fn test_claude_code_dedup() {
 
 #[test]
 fn test_codex_parse_fixture() {
-    let provider = tokemon::provider::codex::CodexProvider::new();
+    let provider = tokemon::source::codex::CodexSource::new();
     let path = Path::new("tests/fixtures/codex_sample.jsonl");
     let entries = provider.parse_file(path).unwrap();
 
@@ -68,7 +68,7 @@ fn test_codex_parse_fixture() {
 
 #[test]
 fn test_gemini_parse_fixture() {
-    let provider = tokemon::provider::gemini::GeminiProvider::new();
+    let provider = tokemon::source::gemini::GeminiSource::new();
     let path = Path::new("tests/fixtures/gemini_sample.json");
     let entries = provider.parse_file(path).unwrap();
 
@@ -87,7 +87,7 @@ fn test_gemini_parse_fixture() {
 
 #[test]
 fn test_cline_parse_fixture() {
-    let provider = tokemon::provider::cline::ClineProvider::new();
+    let provider = tokemon::source::cline::ClineSource::new();
     let path = Path::new("tests/fixtures/cline_sample.json");
     let entries = provider.parse_file(path).unwrap();
 
@@ -106,12 +106,12 @@ fn test_cline_parse_fixture() {
 
 #[test]
 fn test_daily_aggregation() {
-    let provider = tokemon::provider::claude_code::ClaudeCodeProvider::new();
+    let provider = tokemon::source::claude_code::ClaudeCodeSource::new();
     let path = Path::new("tests/fixtures/claude_sample.jsonl");
     let entries = provider.parse_file(path).unwrap();
     let entries = tokemon::dedup::deduplicate(entries);
 
-    let summaries = tokemon::aggregator::aggregate_daily(&entries);
+    let summaries = tokemon::rollup::aggregate_daily(&entries);
 
     // Should have 2 days: 2026-02-20 and 2026-02-21
     assert_eq!(summaries.len(), 2);
@@ -129,12 +129,12 @@ fn test_daily_aggregation() {
 fn test_date_filtering() {
     use chrono::NaiveDate;
 
-    let provider = tokemon::provider::claude_code::ClaudeCodeProvider::new();
+    let provider = tokemon::source::claude_code::ClaudeCodeSource::new();
     let path = Path::new("tests/fixtures/claude_sample.jsonl");
     let entries = provider.parse_file(path).unwrap();
 
     let since = NaiveDate::from_ymd_opt(2026, 2, 21);
-    let filtered = tokemon::aggregator::filter_by_date(entries, since, None);
+    let filtered = tokemon::rollup::filter_by_date(entries, since, None);
 
     // Only entries from Feb 21 should remain
     assert_eq!(filtered.len(), 2); // 2 entries on that day (including duplicate)
@@ -146,9 +146,9 @@ fn test_date_filtering() {
 #[test]
 fn test_usage_entry_total_tokens() {
     use chrono::Utc;
-    use tokemon::types::UsageEntry;
+    use tokemon::types::Record;
 
-    let entry = UsageEntry {
+    let entry = Record {
         timestamp: Utc::now(),
         provider: "test".to_string(),
         model: None,
@@ -169,9 +169,9 @@ fn test_usage_entry_total_tokens() {
 #[test]
 fn test_dedup_key_generation() {
     use chrono::Utc;
-    use tokemon::types::UsageEntry;
+    use tokemon::types::Record;
 
-    let entry_both = UsageEntry {
+    let entry_both = Record {
         timestamp: Utc::now(),
         provider: "test".to_string(),
         model: Some("model-a".to_string()),
@@ -187,7 +187,7 @@ fn test_dedup_key_generation() {
     };
     assert_eq!(entry_both.dedup_key(), Some("msg_1\0req_1".to_string()));
 
-    let entry_msg_only = UsageEntry {
+    let entry_msg_only = Record {
         message_id: Some("msg_2".to_string()),
         request_id: None,
         ..entry_both.clone()
@@ -197,7 +197,7 @@ fn test_dedup_key_generation() {
         Some("msg_2\0model-a\0100\050".to_string())
     );
 
-    let entry_none = UsageEntry {
+    let entry_none = Record {
         message_id: None,
         request_id: None,
         ..entry_both

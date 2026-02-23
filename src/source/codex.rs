@@ -5,15 +5,15 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
-use crate::parse_utils;
+use crate::timestamp;
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct CodexProvider {
+pub struct CodexSource {
     base_dir: PathBuf,
 }
 
-impl CodexProvider {
+impl CodexSource {
     pub fn new() -> Self {
         Self {
             base_dir: paths::home_dir().join(".codex/sessions"),
@@ -36,7 +36,7 @@ struct TokenUsage {
     cached_input_tokens: Option<u64>,
 }
 
-impl super::Provider for CodexProvider {
+impl super::Source for CodexSource {
     fn name(&self) -> &str {
         "codex"
     }
@@ -56,12 +56,12 @@ impl super::Provider for CodexProvider {
             .unwrap_or_default()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let file = fs::File::open(path).map_err(TokemonError::Io)?;
         let reader = BufReader::new(file);
         let mut entries = Vec::new();
 
-        let session_id = parse_utils::extract_session_id(path);
+        let session_id = timestamp::extract_session_id(path);
 
         // State machine: track current model from turn_context lines
         let mut current_model: Option<String> = None;
@@ -125,7 +125,7 @@ impl super::Provider for CodexProvider {
                         None => continue,
                     };
 
-                    let timestamp = match parsed.timestamp.as_deref().and_then(parse_utils::parse_timestamp) {
+                    let timestamp = match parsed.timestamp.as_deref().and_then(timestamp::parse_timestamp) {
                         Some(dt) => dt,
                         None => continue,
                     };
@@ -143,7 +143,7 @@ impl super::Provider for CodexProvider {
                         raw_input - cached
                     };
 
-                    entries.push(UsageEntry {
+                    entries.push(Record {
                         timestamp,
                         provider: "codex".to_string(),
                         model: current_model.clone(),

@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use crate::paths;
 
-use super::jsonl_provider::{GenericJsonlProvider, JsonlProviderConfig};
+use super::jsonl_source::{JsonlSource, JsonlSourceConfig};
 
 pub struct OpenClawConfig;
 
-impl JsonlProviderConfig for OpenClawConfig {
+impl JsonlSourceConfig for OpenClawConfig {
     const NAME: &'static str = "openclaw";
     const DISPLAY_NAME: &'static str = "OpenClaw";
     const HAS_CACHE_TOKENS: bool = true;
@@ -16,4 +16,4 @@ impl JsonlProviderConfig for OpenClawConfig {
     }
 }
 
-pub type OpenClawProvider = GenericJsonlProvider<OpenClawConfig>;
+pub type OpenClawSource = JsonlSource<OpenClawConfig>;

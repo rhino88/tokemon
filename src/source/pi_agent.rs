@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use crate::paths;
 
-use super::jsonl_provider::{GenericJsonlProvider, JsonlProviderConfig};
+use super::jsonl_source::{JsonlSource, JsonlSourceConfig};
 
 pub struct PiAgentConfig;
 
-impl JsonlProviderConfig for PiAgentConfig {
+impl JsonlSourceConfig for PiAgentConfig {
     const NAME: &'static str = "pi-agent";
     const DISPLAY_NAME: &'static str = "Pi Agent";
     fn base_dir() -> PathBuf {
@@ -14,4 +14,4 @@ impl JsonlProviderConfig for PiAgentConfig {
     }
 }
 
-pub type PiAgentProvider = GenericJsonlProvider<PiAgentConfig>;
+pub type PiAgentSource = JsonlSource<PiAgentConfig>;

@@ -1,18 +1,18 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-use super::cline_format::ClineFormatParser;
+use super::cline_format::ClineFormat;
 
-pub struct RooCodeProvider {
-    parser: ClineFormatParser,
+pub struct RooCodeSource {
+    format: ClineFormat,
 }
 
-impl RooCodeProvider {
+impl RooCodeSource {
     pub fn new() -> Self {
         Self {
-            parser: ClineFormatParser {
+            format: ClineFormat {
                 provider_name: "roo-code",
                 extension_id: "rooveterinaryinc.roo-cline",
             },
@@ -20,7 +20,7 @@ impl RooCodeProvider {
     }
 }
 
-impl super::Provider for RooCodeProvider {
+impl super::Source for RooCodeSource {
     fn name(&self) -> &str {
         "roo-code"
     }
@@ -30,14 +30,14 @@ impl super::Provider for RooCodeProvider {
     }
 
     fn data_dir(&self) -> PathBuf {
-        self.parser.data_dir()
+        self.format.data_dir()
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        self.parser.discover_files()
+        self.format.discover_files()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
-        self.parser.parse_file(path)
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
+        self.format.parse_file(path)
     }
 }

@@ -1,12 +1,12 @@
 use chrono::{Datelike, NaiveDate, Utc};
 
 use crate::config::BudgetConfig;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
 /// Evaluate spending against budget limits.
 /// Returns (spent, limit) pairs for each configured budget period.
 pub fn evaluate(
-    entries: &[UsageEntry],
+    entries: &[Record],
     budget: &BudgetConfig,
 ) -> (Option<(f64, f64)>, Option<(f64, f64)>, Option<(f64, f64)>) {
     let today = Utc::now().date_naive();
@@ -32,7 +32,7 @@ pub fn evaluate(
     (daily, weekly, monthly)
 }
 
-fn sum_cost_since(entries: &[UsageEntry], since: NaiveDate) -> f64 {
+fn sum_cost_since(entries: &[Record], since: NaiveDate) -> f64 {
     entries
         .iter()
         .filter(|e| e.timestamp.date_naive() >= since)

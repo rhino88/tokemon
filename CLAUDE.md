@@ -23,9 +23,9 @@ cd ~/code/tokenusage && cargo test
 
 ## Code Conventions
 
-- **New JSONL providers**: Use `GenericJsonlProvider<C>` from `jsonl_provider.rs` — implement `JsonlProviderConfig` (~15 lines)
-- **Cline-derived providers**: Use `ClineFormatParser` from `cline_format.rs`
-- **Timestamps**: Always use `parse_utils::parse_timestamp()`, never inline
+- **New JSONL sources**: Use `JsonlSource<C>` from `jsonl_source.rs` — implement `JsonlSourceConfig` (~15 lines)
+- **Cline-derived sources**: Use `ClineFormat` from `cline_format.rs`
+- **Timestamps**: Always use `timestamp::parse_timestamp()`, never inline
 - **Glob patterns**: Use `PathBuf::join("**/*.jsonl").display().to_string()`
 - **Errors**: Skip malformed lines with `continue`, warnings to stderr only
 - **Pure functions**: Annotate with `#[must_use]`

@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use crate::paths;
 
-use super::jsonl_provider::{GenericJsonlProvider, JsonlProviderConfig};
+use super::jsonl_source::{JsonlSource, JsonlSourceConfig};
 
 pub struct DroidConfig;
 
-impl JsonlProviderConfig for DroidConfig {
+impl JsonlSourceConfig for DroidConfig {
     const NAME: &'static str = "droid";
     const DISPLAY_NAME: &'static str = "Droid";
     fn base_dir() -> PathBuf {
@@ -14,4 +14,4 @@ impl JsonlProviderConfig for DroidConfig {
     }
 }
 
-pub type DroidProvider = GenericJsonlProvider<DroidConfig>;
+pub type DroidSource = JsonlSource<DroidConfig>;

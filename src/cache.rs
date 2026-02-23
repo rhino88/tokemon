@@ -6,7 +6,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{params, Connection, Row, types::Value};
 
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
 const DB_FILENAME: &str = "usage.db";
 
@@ -98,7 +98,7 @@ impl Cache {
     }
 
     /// Load ALL cached entries in one query.
-    pub fn load_all_entries(&self) -> anyhow::Result<Vec<UsageEntry>> {
+    pub fn load_all_entries(&self) -> anyhow::Result<Vec<Record>> {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM usage_entries ORDER BY timestamp")?;
@@ -115,7 +115,7 @@ impl Cache {
         since: Option<NaiveDate>,
         until: Option<NaiveDate>,
         providers: &[String],
-    ) -> anyhow::Result<Vec<UsageEntry>> {
+    ) -> anyhow::Result<Vec<Record>> {
         let mut conditions: Vec<String> = Vec::new();
         let mut param_values: Vec<Value> = Vec::new();
 
@@ -162,7 +162,7 @@ impl Cache {
         &self,
         path: &Path,
         mtime_secs: i64,
-        entries: &[UsageEntry],
+        entries: &[Record],
     ) -> anyhow::Result<()> {
         let path_str = path.display().to_string();
 
@@ -242,14 +242,14 @@ impl Cache {
         );
     }
 
-    /// Single source of truth for mapping a SQLite row to a UsageEntry.
-    fn row_to_entry(row: &Row) -> rusqlite::Result<UsageEntry> {
+    /// Single source of truth for mapping a SQLite row to a Record.
+    fn row_to_entry(row: &Row) -> rusqlite::Result<Record> {
         let ts_str: String = row.get("timestamp")?;
         let timestamp = DateTime::parse_from_rfc3339(&ts_str)
             .map(|dt| dt.to_utc())
             .unwrap_or_else(|_| Utc::now());
 
-        Ok(UsageEntry {
+        Ok(Record {
             timestamp,
             provider: row.get("provider")?,
             model: row.get("model")?,

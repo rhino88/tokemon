@@ -4,15 +4,15 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::error::{Result, TokemonError};
-use crate::parse_utils;
+use crate::timestamp;
 use crate::paths;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-pub struct OpenCodeProvider {
+pub struct OpenCodeSource {
     dirs: Vec<PathBuf>,
 }
 
-impl OpenCodeProvider {
+impl OpenCodeSource {
     pub fn new() -> Self {
         let home = paths::home_dir();
         Self {
@@ -40,7 +40,7 @@ struct OpenCodeUsage {
     cache_creation_tokens: Option<u64>,
 }
 
-impl super::Provider for OpenCodeProvider {
+impl super::Source for OpenCodeSource {
     fn name(&self) -> &str {
         "opencode"
     }
@@ -64,7 +64,7 @@ impl super::Provider for OpenCodeProvider {
         files
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
         let content = fs::read_to_string(path).map_err(TokemonError::Io)?;
         let msg: OpenCodeMessage =
             serde_json::from_str(&content).map_err(|e| TokemonError::JsonParse {
@@ -83,7 +83,7 @@ impl super::Provider for OpenCodeProvider {
             None => return Ok(Vec::new()),
         };
 
-        let timestamp = match msg.timestamp.as_deref().and_then(parse_utils::parse_timestamp) {
+        let timestamp = match msg.timestamp.as_deref().and_then(timestamp::parse_timestamp) {
             Some(dt) => dt,
             None => return Ok(Vec::new()),
         };
@@ -94,7 +94,7 @@ impl super::Provider for OpenCodeProvider {
             .and_then(|s| s.to_str())
             .map(String::from);
 
-        Ok(vec![UsageEntry {
+        Ok(vec![Record {
             timestamp,
             provider: "opencode".to_string(),
             model: msg.model,

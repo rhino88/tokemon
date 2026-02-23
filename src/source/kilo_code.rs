@@ -1,18 +1,18 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::Result;
-use crate::types::UsageEntry;
+use crate::types::Record;
 
-use super::cline_format::ClineFormatParser;
+use super::cline_format::ClineFormat;
 
-pub struct KiloCodeProvider {
-    parser: ClineFormatParser,
+pub struct KiloCodeSource {
+    format: ClineFormat,
 }
 
-impl KiloCodeProvider {
+impl KiloCodeSource {
     pub fn new() -> Self {
         Self {
-            parser: ClineFormatParser {
+            format: ClineFormat {
                 provider_name: "kilo-code",
                 extension_id: "kilocode.kilo-code",
             },
@@ -20,7 +20,7 @@ impl KiloCodeProvider {
     }
 }
 
-impl super::Provider for KiloCodeProvider {
+impl super::Source for KiloCodeSource {
     fn name(&self) -> &str {
         "kilo-code"
     }
@@ -30,14 +30,14 @@ impl super::Provider for KiloCodeProvider {
     }
 
     fn data_dir(&self) -> PathBuf {
-        self.parser.data_dir()
+        self.format.data_dir()
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        self.parser.discover_files()
+        self.format.discover_files()
     }
 
-    fn parse_file(&self, path: &Path) -> Result<Vec<UsageEntry>> {
-        self.parser.parse_file(path)
+    fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
+        self.format.parse_file(path)
     }
 }
