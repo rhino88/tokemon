@@ -15,14 +15,15 @@
 Unified token usage tracking across all your AI coding tools. tokemon reads local session logs from 16 providers, estimates costs via LiteLLM pricing, and presents daily, weekly, or monthly reports in the terminal or as JSON.
 
 ```
-╭────────────┬─────────────┬──────────┬─────────┬─────────┬─────────────┬───────────────┬───────────────┬──────────╮
-│ Date       │ Provider    │ Model    │   Input │  Output │ Cache Write │    Cache Read │  Total Tokens │     Cost │
-├────────────┼─────────────┼──────────┼─────────┼─────────┼─────────────┼───────────────┼───────────────┼──────────┤
-│ 2026-02-20 │ claude-code │ opus-4-1 │  93,518 │  15,623 │   5,106,236 │    57,177,420 │    62,392,797 │  $184.08 │
-│ 2026-02-20 │ claude-code │ opus-4-6 │ 269,971 │ 136,153 │  20,735,988 │   334,303,122 │   355,445,234 │  $301.51 │
-│ ...        │             │          │         │         │             │               │               │          │
-│ TOTAL      │             │          │ 821,808 │ 553,390 │  71,359,819 │ 1,316,632,770 │ 1,389,367,787 │ $1662.67 │
-╰────────────┴─────────────┴──────────┴─────────┴─────────┴─────────────┴───────────────┴───────────────┴──────────╯
+╭────────────┬───────────┬───────────┬─────────────┬───────────────┬───────────────┬──────────╮
+│ Date       │     Input │    Output │ Cache Write │    Cache Read │  Total Tokens │     Cost │
+├────────────┼───────────┼───────────┼─────────────┼───────────────┼───────────────┼──────────┤
+│ 2026-02-20 │   363,489 │   151,776 │  25,842,224 │   391,480,542 │   417,838,031 │  $485.59 │
+│ 2026-02-21 │   305,260 │   266,882 │  25,424,702 │   551,464,876 │   577,461,720 │  $733.72 │
+│ 2026-02-22 │   317,451 │   218,759 │  40,516,730 │   644,994,151 │   686,047,091 │  $877.50 │
+│ ...        │           │           │             │               │               │          │
+│ TOTAL      │ 8,205,537 │ 1,755,386 │ 294,100,468 │ 4,796,913,334 │ 5,100,974,725 │ $5475.81 │
+╰────────────┴───────────┴───────────┴─────────────┴───────────────┴───────────────┴──────────╯
 ```
 
 ## Highlights
@@ -33,16 +34,14 @@ Unified token usage tracking across all your AI coding tools. tokemon reads loca
 - **SQLite cache** — parsed data is cached for instant repeated runs and survives log rotation
 - **Budget pacemaker** — set daily/weekly/monthly spending limits with progress tracking
 - **Statusline mode** — compact one-line output for shell prompts and status bars
-- **Two display modes** — detailed per-model breakdown or compact one-row-per-day view
+- **Two display modes** — compact one-row-per-day (default) or detailed per-model breakdown
 - **Filtering** — by provider (`-p`), date range (`--since` / `--until`), sort order (`-o`)
 - **JSON output** — `--json` for piping to `jq` or downstream tools
 - **Parallel parsing** — multi-threaded file processing with [rayon](https://github.com/rayon-rs/rayon)
 - **Configurable** — persistent preferences via `~/.config/tokemon/config.toml`
-- **Extensible** — adding a new provider is ~20 lines of Rust
+- **Extensible** — adding a new source is ~20 lines of Rust
 
 ## Installation
-
-### From source
 
 Requires [Rust 1.83+](https://rustup.rs/).
 
@@ -55,15 +54,6 @@ cargo build --release
 cargo install --path .
 ```
 
-### With Docker
-
-```bash
-git clone https://github.com/mm65x/tokemon.git
-cd tokemon
-make docker-build
-make docker-run ARGS="discover"
-```
-
 ## Quick Start
 
 ```bash
@@ -73,8 +63,8 @@ tokemon discover
 # Daily usage report (default)
 tokemon
 
-# Compact view — one row per day
-tokemon -d compact
+# Per-model breakdown view
+tokemon -d breakdown
 
 # Monthly report, JSON output
 tokemon monthly --json
@@ -96,18 +86,20 @@ Commands:
   daily        Show daily usage breakdown (default)
   weekly       Show weekly usage summary
   monthly      Show monthly usage summary
-  statusline   Compact one-line output for shell prompts
+  statusline   Compact one-line output for shell prompts (--period today|week|month)
   budget       Show spending vs configured limits
   discover     List auto-detected providers
   init         Generate default config file
 
 Options:
-  -d, --display <MODE>    breakdown (default) or compact
+  -d, --display <MODE>    compact (default) or breakdown
   -p, --provider <NAME>   Filter by provider (repeatable)
       --since <DATE>      Start date (YYYY-MM-DD)
       --until <DATE>      End date (YYYY-MM-DD)
       --no-cost           Skip cost calculation
       --offline           Use cached pricing only
+      --refresh           Force re-discovery of files
+      --reparse           Force re-parse of all files from disk
   -o, --order <ORDER>     asc (default) or desc
       --json              Output as JSON
 ```
@@ -122,7 +114,7 @@ tokemon init
 ```toml
 default_command = "daily"
 default_format = "table"
-breakdown = true
+breakdown = false
 no_cost = false
 offline = false
 sort_order = "asc"
@@ -168,7 +160,7 @@ CLI flags always override config values.
 | OpenClaw | `~/.openclaw/sessions/**/*.jsonl` | JSONL |
 | Piebald | `~/Library/Application Support/piebald/app.db` | SQLite (stub) |
 
-Adding a new provider requires implementing the `Provider` trait — see `src/provider/jsonl_provider.rs` for a template that covers most JSONL-based tools in ~20 lines.
+Adding a new source requires implementing the `Source` trait — see `src/source/jsonl_source.rs` for a template that covers most JSONL-based tools in ~20 lines.
 
 ## Development
 
@@ -179,7 +171,6 @@ make test          # Run tests
 make lint          # Run clippy
 make fmt           # Format code
 make ci            # Run all checks (fmt + lint + test)
-make docker-build  # Build Docker image
 ```
 
 ## Architecture
@@ -189,23 +180,23 @@ src/
 ├── main.rs              # CLI entry, command dispatch
 ├── cli.rs               # clap argument definitions
 ├── config.rs            # TOML config loading and validation
-├── types.rs             # Core data types (UsageEntry, Report, etc.)
+├── types.rs             # Core data types (Record, Report, etc.)
 ├── error.rs             # Error types
 ├── cache.rs             # SQLite cache layer
 ├── pacemaker.rs         # Budget tracking and limits
-├── parse_utils.rs       # Shared timestamp parsing
-├── pricing.rs           # LiteLLM cost calculation engine
-├── aggregator.rs        # Daily/weekly/monthly grouping
+├── timestamp.rs         # Shared timestamp parsing
+├── cost.rs              # LiteLLM cost calculation engine
+├── rollup.rs            # Daily/weekly/monthly grouping
 ├── dedup.rs             # Deduplication logic
-├── output.rs            # Table and JSON rendering
+├── render.rs            # Table and JSON rendering
 ├── paths.rs             # Platform-specific path resolution
-└── provider/
-    ├── mod.rs            # Provider trait and registry
-    ├── jsonl_provider.rs # Generic JSONL provider (5 providers use this)
-    ├── cline_format.rs   # Shared Cline-format parser (3 providers use this)
+└── source/
+    ├── mod.rs            # Source trait and SourceSet
+    ├── jsonl_source.rs   # Generic JSONL source (5 sources use this)
+    ├── cline_format.rs   # Shared Cline-format parser (3 sources use this)
     ├── claude_code.rs    # Claude Code parser
     ├── codex.rs          # Codex CLI parser (state machine)
-    └── ...               # One file per provider
+    └── ...               # One file per source
 ```
 
 ## License
