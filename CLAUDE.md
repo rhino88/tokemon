@@ -2,7 +2,20 @@
 
 ## Build
 
-Rust 1.83+ required. All cargo commands must be run inside Docker on this machine:
+Rust 1.83+ required. On this machine, `cargo build` must run from **outside the OneDrive-synced directory** (OneDrive filesystem hooks kill build script binaries). Use `~/tmp/` as the build directory:
+
+```bash
+# One-time: copy source and build
+cp -r . ~/tmp/tokemon-build
+cd ~/tmp/tokemon-build
+cargo build --release
+cp target/release/tokemon ~/.local/bin/tokemon
+
+# Clean up
+rm -rf ~/tmp/tokemon-build
+```
+
+Alternatively, build inside Docker:
 
 ```bash
 docker run --rm \
@@ -13,30 +26,10 @@ docker run --rm \
   tokemon-dev cargo build --release
 ```
 
-If `tokemon-dev` image doesn't exist: `docker build -t tokemon-dev --target builder .`
-
-Regenerate CA bundle if needed:
-```bash
-security export -t certs -f pemseq -k /Library/Keychains/System.keychain -o /tmp/sys.pem
-security export -t certs -f pemseq -k /System/Library/Keychains/SystemRootCertificates.keychain -o /tmp/root.pem
-cat /tmp/sys.pem /tmp/root.pem > /tmp/ca-bundle.pem
-```
-
 ## Test
 
 ```bash
-# In Docker:
-docker run --rm -v $(pwd):/app -w /app tokemon-dev cargo test
-```
-
-## Run against real data
-
-```bash
-docker run --rm \
-  -v $(pwd):/app -w /app \
-  -v ~/.claude:/root/.claude:ro \
-  -v ~/.cache/tokemon:/root/.cache/tokemon:ro \
-  tokemon-dev ./target/release/tokemon [ARGS]
+cd ~/tmp/tokemon-build && cargo test
 ```
 
 ## Git
@@ -55,5 +48,5 @@ docker run --rm \
 
 ## Content Policy
 
-- **Never reference other tools by name** in README, comments, commit messages, or documentation. No comparisons, no "inspired by X", no "like Y". Tokemon stands on its own.
+- **Never reference other tools by name** in README, comments, commit messages, or documentation. No comparisons, no "inspired by X", no "like Y". tokemon stands on its own.
 - File paths that happen to contain third-party tool names (e.g., `~/.config/tokscale/cursor-cache/`) are acceptable since those are factual filesystem locations.
