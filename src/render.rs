@@ -231,15 +231,30 @@ fn render_breakdown(
         bold_row(&mut row, color);
         builder.push_record(row);
 
-        for model in &summary.models {
+        // Detect duplicate shortened model names to disambiguate with provider
+        let shortened: Vec<String> = summary
+            .models
+            .iter()
+            .map(|m| shorten_model(&m.model))
+            .collect();
+        let has_dup: Vec<bool> = shortened
+            .iter()
+            .map(|s| shortened.iter().filter(|o| *o == s).count() > 1)
+            .collect();
+
+        for (i, model) in summary.models.iter().enumerate() {
             let model_total = model.input_tokens
                 + model.output_tokens
                 + model.cache_read_tokens
                 + model.cache_creation_tokens
                 + model.thinking_tokens;
 
-            let mut row: Vec<String> =
-                vec![String::new(), format!("  {}", shorten_model(&model.model))];
+            let label = if has_dup[i] {
+                format!("  {} ({})", shortened[i], model.provider)
+            } else {
+                format!("  {}", shortened[i])
+            };
+            let mut row: Vec<String> = vec![String::new(), label];
             if show_in {
                 row.push(format_tokens_styled(model.input_tokens, color));
             }
@@ -536,14 +551,17 @@ fn format_cost(cost: f64) -> String {
 }
 
 fn shorten_model(model: &str) -> String {
-    let s = model.to_string();
+    // Strip provider prefixes like "vertexai.", "openai/", "anthropic/"
+    let s = model
+        .strip_prefix("vertexai.")
+        .or_else(|| model.split('/').last())
+        .unwrap_or(model);
 
     if let Some(rest) = s.strip_prefix("claude-") {
-        let without_date = strip_date_suffix(rest);
-        return without_date.to_string();
+        return strip_date_suffix(rest).to_string();
     }
 
-    strip_date_suffix(&s).to_string()
+    strip_date_suffix(s).to_string()
 }
 
 fn strip_date_suffix(s: &str) -> &str {
