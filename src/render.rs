@@ -97,28 +97,31 @@ fn style_header(header: &mut [String], color: bool) {
 // Responsive columns
 // ---------------------------------------------------------------------------
 
-/// Determine which optional columns are visible based on terminal width.
-/// Returns (show_input, show_output, show_cache_write, show_cache_read).
-/// Total Tokens and Cost are always shown.
+/// Terminal width in visible columns.
 #[must_use]
-fn visible_columns(extra_fixed_cols: usize) -> (bool, bool, bool, bool) {
-    let width = terminal_size::terminal_size()
+fn terminal_width() -> usize {
+    terminal_size::terminal_size()
         .map(|(w, _)| w.0 as usize)
-        .unwrap_or(120);
+        .unwrap_or(120)
+}
 
-    // Each numeric column needs ~18 chars (content + padding + borders).
-    // Fixed columns: Date (~14), Total Tokens (~18), Cost (~12), borders (~4).
-    // In breakdown mode extra_fixed_cols=2 adds Model (~22).
-    let col_width: usize = 18;
-    let fixed = extra_fixed_cols * 22 + 14 + 18 + 12 + 4;
-    let remaining = width.saturating_sub(fixed);
-
-    let show_cache_write = remaining >= 4 * col_width;
-    let show_cache_read = remaining >= 3 * col_width;
-    let show_input = remaining >= 2 * col_width;
-    let show_output = show_input;
-
-    (show_input, show_output, show_cache_write, show_cache_read)
+/// Visible width of a string, ignoring ANSI escape codes.
+#[must_use]
+fn display_width(s: &str) -> usize {
+    let mut w = 0;
+    let mut in_escape = false;
+    for c in s.chars() {
+        if in_escape {
+            if c.is_ascii_alphabetic() {
+                in_escape = false;
+            }
+        } else if c == '\x1b' {
+            in_escape = true;
+        } else {
+            w += 1;
+        }
+    }
+    w
 }
 
 // ---------------------------------------------------------------------------
@@ -152,8 +155,35 @@ pub fn print_table(report: &Report, breakdown: bool) {
 
 fn print_breakdown_table(report: &Report) {
     let color = use_color();
-    let (show_in, show_out, show_cw, show_cr) = visible_columns(2);
+    let width = terminal_width();
 
+    // Try column sets from most to fewest until the table fits.
+    // Order: all 4 → no cache_write → no caches → no optional cols.
+    let column_sets = [
+        (true, true, true, true),
+        (true, true, false, true),
+        (true, true, false, false),
+        (false, false, false, false),
+    ];
+
+    for &(show_in, show_out, show_cw, show_cr) in &column_sets {
+        let table = render_breakdown(report, color, show_in, show_out, show_cw, show_cr);
+        let first_line = table.lines().next().unwrap_or("");
+        if display_width(first_line) <= width || (!show_in && !show_out) {
+            println!("{}", table);
+            return;
+        }
+    }
+}
+
+fn render_breakdown(
+    report: &Report,
+    color: bool,
+    show_in: bool,
+    show_out: bool,
+    show_cw: bool,
+    show_cr: bool,
+) -> String {
     let mut header: Vec<String> = vec!["Date".into(), "Model".into()];
     if show_in {
         header.push("Input".into());
@@ -177,7 +207,6 @@ fn print_breakdown_table(report: &Report) {
     builder.push_record(header);
 
     for summary in &report.summaries {
-        // Date summary row — bold
         let total = summary.total_input
             + summary.total_output
             + summary.total_cache_creation()
@@ -202,7 +231,6 @@ fn print_breakdown_table(report: &Report) {
         bold_row(&mut row, color);
         builder.push_record(row);
 
-        // Model sub-rows
         for model in &summary.models {
             let model_total = model.input_tokens
                 + model.output_tokens
@@ -230,7 +258,6 @@ fn print_breakdown_table(report: &Report) {
         }
     }
 
-    // Grand totals
     let (gi, go, gcw, gcr, gt) = grand_totals(report);
     let mut row: Vec<String> = vec!["TOTAL".into(), String::new()];
     if show_in {
@@ -250,18 +277,42 @@ fn print_breakdown_table(report: &Report) {
     bold_row(&mut row, color);
     builder.push_record(row);
 
-    let table = builder
+    builder
         .build()
         .with(Style::rounded())
         .with(Modify::new(Columns::new(first_numeric_col..)).with(Alignment::right()))
-        .to_string();
-    println!("{}", table);
+        .to_string()
 }
 
 fn print_compact_table(report: &Report) {
     let color = use_color();
-    let (show_in, show_out, show_cw, show_cr) = visible_columns(1);
+    let width = terminal_width();
 
+    let column_sets = [
+        (true, true, true, true),
+        (true, true, false, true),
+        (true, true, false, false),
+        (false, false, false, false),
+    ];
+
+    for &(show_in, show_out, show_cw, show_cr) in &column_sets {
+        let table = render_compact(report, color, show_in, show_out, show_cw, show_cr);
+        let first_line = table.lines().next().unwrap_or("");
+        if display_width(first_line) <= width || (!show_in && !show_out) {
+            println!("{}", table);
+            return;
+        }
+    }
+}
+
+fn render_compact(
+    report: &Report,
+    color: bool,
+    show_in: bool,
+    show_out: bool,
+    show_cw: bool,
+    show_cr: bool,
+) -> String {
     let mut header: Vec<String> = vec!["Date".into()];
     if show_in {
         header.push("Input".into());
@@ -308,7 +359,6 @@ fn print_compact_table(report: &Report) {
         builder.push_record(row);
     }
 
-    // Grand totals
     let (gi, go, gcw, gcr, gt) = grand_totals(report);
     let mut row: Vec<String> = vec!["TOTAL".into()];
     if show_in {
@@ -328,12 +378,11 @@ fn print_compact_table(report: &Report) {
     bold_row(&mut row, color);
     builder.push_record(row);
 
-    let table = builder
+    builder
         .build()
         .with(Style::rounded())
         .with(Modify::new(Columns::new(first_numeric_col..)).with(Alignment::right()))
-        .to_string();
-    println!("{}", table);
+        .to_string()
 }
 
 fn grand_totals(report: &Report) -> (u64, u64, u64, u64, u64) {
@@ -536,11 +585,6 @@ mod tests {
         assert_eq!(format_cost(0.0), "$0.00");
         assert_eq!(format_cost(1.50), "$1.50");
         assert_eq!(format_cost(0.005), "$0.0050");
-    }
-
-    #[test]
-    fn test_visible_columns() {
-        let _ = visible_columns(2);
     }
 
     #[test]
