@@ -26,9 +26,12 @@ cd ~/code/tokenusage && cargo test
 - **New JSONL sources**: Use `JsonlSource<C>` from `jsonl_source.rs` — implement `JsonlSourceConfig` (~15 lines)
 - **Cline-derived sources**: Use `ClineFormat` from `cline_format.rs`
 - **Timestamps**: Always use `timestamp::parse_timestamp()`, never inline
-- **Glob patterns**: Use `PathBuf::join("**/*.jsonl").display().to_string()`
+- **File discovery**: Use structural `read_dir` navigation in `discover_files()`, aided by helpers in `source/discover.rs`. No glob crate.
+- **Display names**: Use `display.rs` functions (`display_client`, `display_model`, `infer_api_provider`) for presentation
 - **Errors**: Skip malformed lines with `continue`, warnings to stderr only
 - **Pure functions**: Annotate with `#[must_use]`
+- **Pre-filtering**: JSONL parsers should `line.contains()` check before `serde_json::from_str` to skip non-matching lines cheaply
+- **BufReader**: Use `BufReader::with_capacity(64 * 1024, file)` for line-by-line parsers
 
 ## Content Policy
 

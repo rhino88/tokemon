@@ -34,7 +34,7 @@ Unified token usage tracking across all your AI coding tools. tokemon reads loca
 - **SQLite cache** — parsed data is cached for instant repeated runs and survives log rotation
 - **Budget pacemaker** — set daily/weekly/monthly spending limits with progress tracking
 - **Statusline mode** — compact one-line output for shell prompts and status bars
-- **Two display modes** — compact one-row-per-day (default) or detailed per-model breakdown
+- **Two display modes** — compact one-row-per-day (default) or detailed per-model breakdown with responsive API Provider and Client columns
 - **Filtering** — by provider (`-p`), date range (`--since` / `--until`), sort order (`-o`)
 - **JSON output** — `--json` for piping to `jq` or downstream tools
 - **Parallel parsing** — multi-threaded file processing with [rayon](https://github.com/rayon-rs/rayon)
@@ -127,8 +127,9 @@ monthly = 800.0   # $800/month limit
 
 [columns]
 date = true
-provider = true
 model = true
+api_provider = true
+client = true
 input = true
 output = true
 cache_write = true
@@ -143,21 +144,21 @@ CLI flags always override config values.
 
 | Provider | Log Location | Format |
 |----------|-------------|--------|
-| Claude Code | `~/.claude/projects/**/*.jsonl` | JSONL |
-| Codex CLI | `~/.codex/sessions/**/*.jsonl` | JSONL |
-| Gemini CLI | `~/.gemini/tmp/**/session*.json` | JSON |
-| Amp | `~/.local/share/amp/threads/**/*.jsonl` | JSONL |
+| Claude Code | `~/.claude/projects/{project}/{uuid}.jsonl` | JSONL |
+| Codex CLI | `~/.codex/sessions/YYYY/MM/DD/*.jsonl` | JSONL |
+| Gemini CLI | `~/.gemini/tmp/{project}/chats/session-*.json` | JSON |
+| Amp | `~/.local/share/amp/threads/` | JSONL |
 | OpenCode | `~/.opencode/opencode.db` | SQLite |
 | Cline | VSCode globalStorage | JSON |
 | Roo Code | VSCode globalStorage | JSON |
 | Kilo Code | VSCode globalStorage | JSON |
 | Copilot | VSCode workspaceStorage | JSON (stub) |
-| Cursor | `~/.config/tokscale/cursor-cache/*.csv` | CSV |
-| Qwen Code | `~/.qwen/tmp/**/session.json` | JSON |
-| Pi Agent | `~/.pi-agent/sessions/**/*.jsonl` | JSONL |
-| Kimi | `~/.kimi/sessions/**/*.jsonl` | JSONL |
-| Droid | `~/.droid/sessions/**/*.jsonl` | JSONL |
-| OpenClaw | `~/.openclaw/sessions/**/*.jsonl` | JSONL |
+| Cursor | `~/.config/tokscale/cursor-cache/usage*.csv` | CSV |
+| Qwen Code | `~/.qwen/tmp/{project}/session.json` | JSON |
+| Pi Agent | `~/.pi/agent/sessions/{project}/*.jsonl` | JSONL |
+| Kimi | `~/.kimi/sessions/` | JSONL |
+| Droid | `~/.factory/sessions/` | JSONL |
+| OpenClaw | `~/.openclaw/sessions/` | JSONL |
 | Piebald | `~/Library/Application Support/piebald/app.db` | SQLite (stub) |
 
 Adding a new source requires implementing the `Source` trait — see `src/source/jsonl_source.rs` for a template that covers most JSONL-based tools in ~20 lines.
@@ -177,25 +178,27 @@ make ci            # Run all checks (fmt + lint + test)
 
 ```
 src/
-├── main.rs              # CLI entry, command dispatch
+├── main.rs              # CLI entry, command dispatch, cache-aware parsing
 ├── cli.rs               # clap argument definitions
 ├── config.rs            # TOML config loading and validation
 ├── types.rs             # Core data types (Record, Report, etc.)
 ├── error.rs             # Error types
 ├── cache.rs             # SQLite cache layer
+├── display.rs           # Name translation (client, model, API provider)
 ├── pacemaker.rs         # Budget tracking and limits
 ├── timestamp.rs         # Shared timestamp parsing
 ├── cost.rs              # LiteLLM cost calculation engine
 ├── rollup.rs            # Daily/weekly/monthly grouping
-├── dedup.rs             # Deduplication logic
-├── render.rs            # Table and JSON rendering
+├── dedup.rs             # Hash-based deduplication
+├── render.rs            # Table and JSON rendering with responsive columns
 ├── paths.rs             # Platform-specific path resolution
 └── source/
     ├── mod.rs            # Source trait and SourceSet
-    ├── jsonl_source.rs   # Generic JSONL source (5 sources use this)
+    ├── discover.rs       # Bounded read_dir file discovery utilities
+    ├── jsonl_source.rs   # Generic JSONL source (4 sources use this)
     ├── cline_format.rs   # Shared Cline-format parser (3 sources use this)
-    ├── claude_code.rs    # Claude Code parser
-    ├── codex.rs          # Codex CLI parser (state machine)
+    ├── claude_code.rs    # Claude Code parser (structural discovery)
+    ├── codex.rs          # Codex CLI parser (state machine, YYYY/MM/DD nav)
     └── ...               # One file per source
 ```
 

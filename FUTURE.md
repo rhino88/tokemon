@@ -38,20 +38,6 @@ SwiftUI `MenuBarExtra` with:
 - Provider toggles
 - Click to open detailed view
 
-### Budget Alerts / Pacemaker System
-Set daily/weekly/monthly budgets per provider or total. Traffic-light status:
-- Green: under 60% of budget
-- Orange: 60-90% of budget
-- Red: over 90% of budget
-
-### Configuration File
-`~/.config/tokemon/config.toml` for:
-- Default providers
-- Budget thresholds
-- Custom provider paths
-- Output preferences
-- Pricing cache TTL
-
 ### MCP Server Integration
 Expose usage data as an MCP tool so AI assistants can self-monitor their token consumption. Useful for cost-aware agents.
 
@@ -79,13 +65,8 @@ Export reports for expense reporting and team billing.
 - Duration, tokens, cost per session
 - Session descriptions (from first user message)
 
-### Statusline Output Mode
-`tokemon --statusline` for shell prompt integration:
-- Compact format: `$12.34 | 1.2M tok`
-- Color codes for budget status
-
 ### Piebald SQLite Support
-Add `rusqlite` dependency to parse Piebald's `app.db` directly.
+Reverse-engineer Piebald's `app.db` schema to parse usage data (rusqlite is already a dependency).
 
 ### Copilot Token Estimation
 Use `tiktoken` to estimate token counts from Copilot chat sessions (which don't include token metadata).
