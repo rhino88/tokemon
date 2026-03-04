@@ -27,6 +27,10 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 
+    /// Aggregation frequency: daily, weekly, or monthly
+    #[arg(short = 'f', long, global = true, value_enum, default_value = "daily")]
+    pub frequency: Frequency,
+
     /// Output as JSON instead of table
     #[arg(long, global = true)]
     pub json: bool,
@@ -95,29 +99,19 @@ impl Cli {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum StatuslinePeriod {
-    /// Today's usage
-    Today,
-    /// This week's usage
-    Week,
-    /// This month's usage
-    Month,
+pub enum Frequency {
+    /// Daily aggregation
+    Daily,
+    /// Weekly aggregation
+    Weekly,
+    /// Monthly aggregation
+    Monthly,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Show daily usage breakdown (default when no subcommand given)
-    Daily,
-    /// Show weekly usage summary
-    Weekly,
-    /// Show monthly usage summary
-    Monthly,
     /// Compact one-line output for shell prompts and status bars
-    Statusline {
-        /// Time period to summarize
-        #[arg(long, value_enum, default_value = "today")]
-        period: StatuslinePeriod,
-    },
+    Statusline,
     /// Show budget progress against configured limits
     Budget,
     /// List auto-detected providers on this machine

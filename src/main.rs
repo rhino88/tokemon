@@ -18,7 +18,7 @@ mod timestamp;
 mod types;
 
 use cache::Cache;
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, Frequency};
 use config::Config;
 use source::SourceSet;
 use types::{Report, SessionReport};
@@ -29,19 +29,15 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load();
 
-    let command = cli.command.as_ref().unwrap_or(&Commands::Daily);
-
-    match command {
-        Commands::Discover => cmd_discover(),
-        Commands::Init => cmd_init(),
-        Commands::Daily => cmd_report(&cli, &config, "daily"),
-        Commands::Weekly => cmd_report(&cli, &config, "weekly"),
-        Commands::Monthly => cmd_report(&cli, &config, "monthly"),
-        Commands::Statusline { period } => cmd_statusline(&cli, &config, *period),
-        Commands::Budget => cmd_budget(&cli, &config),
-        Commands::Sessions { top } => cmd_sessions(&cli, &config, *top),
-        Commands::Prune { before } => cmd_prune(*before),
-        Commands::Mcp => mcp::run(&cli, &config),
+    match cli.command.as_ref() {
+        None => cmd_report(&cli, &config),
+        Some(Commands::Discover) => cmd_discover(),
+        Some(Commands::Init) => cmd_init(),
+        Some(Commands::Statusline) => cmd_statusline(&cli, &config),
+        Some(Commands::Budget) => cmd_budget(&cli, &config),
+        Some(Commands::Sessions { top }) => cmd_sessions(&cli, &config, *top),
+        Some(Commands::Prune { before }) => cmd_prune(*before),
+        Some(Commands::Mcp) => mcp::run(&cli, &config),
     }
 }
 
@@ -119,7 +115,13 @@ pub(crate) fn load_and_price(
 
 // --- Command handlers ---
 
-fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
+fn cmd_report(cli: &Cli, config: &Config) -> anyhow::Result<()> {
+    let freq = cli.frequency;
+    let period = match freq {
+        Frequency::Daily => "daily",
+        Frequency::Weekly => "weekly",
+        Frequency::Monthly => "monthly",
+    };
     let mut entries = load_and_price(cli, config, false)?;
 
     if entries.is_empty() {
@@ -159,10 +161,10 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
         .collect();
     providers_found.sort_unstable();
 
-    let mut summaries = match period {
-        "weekly" => rollup::aggregate_weekly(&entries),
-        "monthly" => rollup::aggregate_monthly(&entries),
-        _ => rollup::aggregate_daily(&entries),
+    let mut summaries = match freq {
+        Frequency::Weekly => rollup::aggregate_weekly(&entries),
+        Frequency::Monthly => rollup::aggregate_monthly(&entries),
+        Frequency::Daily => rollup::aggregate_daily(&entries),
     };
 
     if cli.is_desc(config) {
@@ -198,23 +200,24 @@ fn cmd_report(cli: &Cli, config: &Config, period: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn cmd_statusline(cli: &Cli, config: &Config, period: cli::StatuslinePeriod) -> anyhow::Result<()> {
+fn cmd_statusline(cli: &Cli, config: &Config) -> anyhow::Result<()> {
     let entries = load_and_price(cli, config, true)?;
+    let freq = cli.frequency;
 
     let today = Utc::now().date_naive();
-    let since = match period {
-        cli::StatuslinePeriod::Today => today,
-        cli::StatuslinePeriod::Week => {
+    let since = match freq {
+        Frequency::Daily => today,
+        Frequency::Weekly => {
             today - chrono::Duration::days(today.weekday().num_days_from_monday() as i64)
         }
-        cli::StatuslinePeriod::Month => {
+        Frequency::Monthly => {
             chrono::NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today)
         }
     };
-    let period_label = match period {
-        cli::StatuslinePeriod::Today => "today",
-        cli::StatuslinePeriod::Week => "this week",
-        cli::StatuslinePeriod::Month => "this month",
+    let period_label = match freq {
+        Frequency::Daily => "today",
+        Frequency::Weekly => "this week",
+        Frequency::Monthly => "this month",
     };
 
     let mut providers_seen = std::collections::HashSet::new();
@@ -233,10 +236,10 @@ fn cmd_statusline(cli: &Cli, config: &Config, period: cli::StatuslinePeriod) -> 
         || config.budget.monthly.is_some()
     {
         let (daily, weekly, monthly) = pacemaker::evaluate(&entries, &config.budget);
-        match period {
-            cli::StatuslinePeriod::Today => daily.map(|(s, l)| format_budget_short(s, l)),
-            cli::StatuslinePeriod::Week => weekly.map(|(s, l)| format_budget_short(s, l)),
-            cli::StatuslinePeriod::Month => monthly.map(|(s, l)| format_budget_short(s, l)),
+        match freq {
+            Frequency::Daily => daily.map(|(s, l)| format_budget_short(s, l)),
+            Frequency::Weekly => weekly.map(|(s, l)| format_budget_short(s, l)),
+            Frequency::Monthly => monthly.map(|(s, l)| format_budget_short(s, l)),
         }
     } else {
         None
