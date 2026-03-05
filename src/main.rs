@@ -80,10 +80,36 @@ fn resolve_providers<'a>(cli: &'a Cli, config: &'a Config) -> &'a [String] {
     }
 }
 
+/// Compute the start date for a given frequency.
+#[must_use]
+fn frequency_since(freq: Frequency) -> NaiveDate {
+    let today = Utc::now().date_naive();
+    match freq {
+        Frequency::Daily => today,
+        Frequency::Weekly => {
+            today - chrono::Duration::days(today.weekday().num_days_from_monday() as i64)
+        }
+        Frequency::Monthly => {
+            NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today)
+        }
+    }
+}
+
+/// Merge two optional dates, taking the later of the two.
+#[must_use]
+fn merge_since(a: Option<NaiveDate>, b: Option<NaiveDate>) -> Option<NaiveDate> {
+    match (a, b) {
+        (Some(x), Some(y)) => Some(x.max(y)),
+        (x, y) => x.or(y),
+    }
+}
+
 pub(crate) fn load_and_price(
     cli: &Cli,
     config: &Config,
     force_offline: bool,
+    since: Option<NaiveDate>,
+    until: Option<NaiveDate>,
 ) -> anyhow::Result<Vec<types::Record>> {
     let registry = SourceSet::new();
     let filter = resolve_providers(cli, config);
@@ -94,8 +120,8 @@ pub(crate) fn load_and_price(
         filter,
         force_refresh,
         force_reparse,
-        cli.since,
-        cli.until,
+        since,
+        until,
     )?;
 
     if !(cli.no_cost || config.no_cost) {
@@ -122,7 +148,7 @@ fn cmd_report(cli: &Cli, config: &Config) -> anyhow::Result<()> {
         Frequency::Weekly => "weekly",
         Frequency::Monthly => "monthly",
     };
-    let mut entries = load_and_price(cli, config, false)?;
+    let mut entries = load_and_price(cli, config, false, cli.since, cli.until)?;
 
     if entries.is_empty() {
         let empty_report = Report {
@@ -201,19 +227,10 @@ fn cmd_report(cli: &Cli, config: &Config) -> anyhow::Result<()> {
 }
 
 fn cmd_statusline(cli: &Cli, config: &Config) -> anyhow::Result<()> {
-    let entries = load_and_price(cli, config, true)?;
     let freq = cli.frequency;
-
-    let today = Utc::now().date_naive();
-    let since = match freq {
-        Frequency::Daily => today,
-        Frequency::Weekly => {
-            today - chrono::Duration::days(today.weekday().num_days_from_monday() as i64)
-        }
-        Frequency::Monthly => {
-            chrono::NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today)
-        }
-    };
+    let since = frequency_since(freq);
+    let effective_since = merge_since(cli.since, Some(since));
+    let entries = load_and_price(cli, config, true, effective_since, cli.until)?;
     let period_label = match freq {
         Frequency::Daily => "today",
         Frequency::Weekly => "this week",
@@ -261,14 +278,14 @@ fn cmd_statusline(cli: &Cli, config: &Config) -> anyhow::Result<()> {
 }
 
 fn cmd_budget(cli: &Cli, config: &Config) -> anyhow::Result<()> {
-    let entries = load_and_price(cli, config, false)?;
+    let entries = load_and_price(cli, config, false, cli.since, cli.until)?;
     let (daily, weekly, monthly) = pacemaker::evaluate(&entries, &config.budget);
     render::print_budget(daily, weekly, monthly);
     Ok(())
 }
 
 fn cmd_sessions(cli: &Cli, config: &Config, top: usize) -> anyhow::Result<()> {
-    let entries = load_and_price(cli, config, false)?;
+    let entries = load_and_price(cli, config, false, cli.since, cli.until)?;
 
     if entries.is_empty() {
         let empty_report = SessionReport {
