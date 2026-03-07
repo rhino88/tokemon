@@ -33,10 +33,12 @@ Unified token usage tracking across all your AI coding tools. tokemon reads loca
 - **Cost estimation** — LiteLLM pricing database with three-level model name matching
 - **SQLite cache** — parsed data is cached for instant repeated runs and survives log rotation
 - **Budget pacemaker** — set daily/weekly/monthly spending limits with progress tracking
-- **Statusline mode** — compact one-line output for shell prompts and status bars
+- **Statusline mode** — compact one-line output for shell prompts and status bars (`tokemon statusline`)
+- **Session breakdown** — per-session cost analysis across all providers (`tokemon sessions`)
+- **MCP server** — expose usage data to AI tools via Model Context Protocol (`tokemon mcp`)
 - **Two display modes** — compact one-row-per-day (default) or detailed per-model breakdown with responsive API Provider and Client columns
-- **Filtering** — by provider (`-p`), date range (`--since` / `--until`), sort order (`-o`)
-- **JSON output** — `--json` for piping to `jq` or downstream tools
+- **Filtering** — by provider (`-p`), date range (`--since` / `--until`), frequency (`-f`), sort order (`-o`)
+- **JSON & CSV output** — `--json` or `--csv` for piping to `jq` or downstream tools
 - **Parallel parsing** — multi-threaded file processing with [rayon](https://github.com/rayon-rs/rayon)
 - **Configurable** — persistent preferences via `~/.config/tokemon/config.toml`
 - **Extensible** — adding a new source is ~20 lines of Rust
@@ -66,32 +68,40 @@ tokemon
 # Per-model breakdown view
 tokemon -d breakdown
 
-# Monthly report, JSON output
-tokemon monthly --json
+# Weekly or monthly report
+tokemon -f weekly
+tokemon -f monthly --json
 
 # Budget overview
 tokemon budget
 
+# Per-session cost breakdown
+tokemon sessions
+
 # Statusline for shell prompts
 tokemon statusline
 # $42.17 | 1.2B tok | 1 provider | today
+
+tokemon statusline -f weekly
+# $312.50 | 8.4B tok | 2 providers | this week
 ```
 
 ## Usage
 
 ```
-tokemon [COMMAND] [OPTIONS]
+tokemon [OPTIONS] [COMMAND]
 
 Commands:
-  daily        Show daily usage breakdown (default)
-  weekly       Show weekly usage summary
-  monthly      Show monthly usage summary
-  statusline   Compact one-line output for shell prompts (--period today|week|month)
+  statusline   Compact one-line output for shell prompts and status bars
   budget       Show spending vs configured limits
+  sessions     Show per-session cost breakdown
   discover     List auto-detected providers
   init         Generate default config file
+  prune        Delete old preserved data from the cache
+  mcp          Start MCP (Model Context Protocol) server over stdio
 
 Options:
+  -f, --frequency <FREQ>  daily (default), weekly, or monthly
   -d, --display <MODE>    compact (default) or breakdown
   -p, --provider <NAME>   Filter by provider (repeatable)
       --since <DATE>      Start date (YYYY-MM-DD)
@@ -102,6 +112,7 @@ Options:
       --reparse           Force re-parse of all files from disk
   -o, --order <ORDER>     asc (default) or desc
       --json              Output as JSON
+      --csv               Output as CSV
 ```
 
 ## Configuration
@@ -148,7 +159,7 @@ CLI flags always override config values.
 | Codex CLI | `~/.codex/sessions/YYYY/MM/DD/*.jsonl` | JSONL |
 | Gemini CLI | `~/.gemini/tmp/{project}/chats/session-*.json` | JSON |
 | Amp | `~/.local/share/amp/threads/` | JSONL |
-| OpenCode | `~/.opencode/opencode.db` | SQLite |
+| OpenCode | `~/.local/share/opencode/opencode.db` | SQLite |
 | Cline | VSCode globalStorage | JSON |
 | Roo Code | VSCode globalStorage | JSON |
 | Kilo Code | VSCode globalStorage | JSON |
@@ -191,6 +202,7 @@ src/
 ├── rollup.rs            # Daily/weekly/monthly grouping
 ├── dedup.rs             # Hash-based deduplication
 ├── render.rs            # Table and JSON rendering with responsive columns
+├── mcp.rs               # MCP server (Model Context Protocol)
 ├── paths.rs             # Platform-specific path resolution
 └── source/
     ├── mod.rs            # Source trait and SourceSet
