@@ -4,6 +4,7 @@
     an LLM <b>tok</b>en <b>mon</b>itor
   </p>
   <p align="center">
+    <a href="https://crates.io/crates/tokemon"><img alt="crates.io" src="https://img.shields.io/crates/v/tokemon.svg"></a>
     <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
     <a href="https://www.rust-lang.org/"><img alt="Built with Rust" src="https://img.shields.io/badge/built%20with-Rust-orange.svg"></a>
     <img alt="16 providers" src="https://img.shields.io/badge/providers-16-green.svg">
@@ -45,16 +46,25 @@ Unified token usage tracking across all your AI coding tools. tokemon reads loca
 
 ## Installation
 
+### From crates.io
+
+```bash
+cargo install tokemon
+```
+
+### From source
+
 Requires [Rust 1.83+](https://rustup.rs/).
 
 ```bash
 git clone https://github.com/mm65x/tokemon.git
 cd tokemon
-cargo build --release
-
-# Optionally install to PATH:
 cargo install --path .
 ```
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/mm65x/tokemon/releases) (Linux, macOS, Windows).
 
 ## Quick Start
 
