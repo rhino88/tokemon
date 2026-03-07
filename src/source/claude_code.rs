@@ -113,10 +113,23 @@ impl super::Source for ClaudeCodeSource {
                     .as_deref()
                     .and_then(timestamp::parse_timestamp)?;
 
+                // Detect Vertex AI from message ID prefix
+                let model = match message.model {
+                    Some(m)
+                        if message
+                            .id
+                            .as_deref()
+                            .is_some_and(|id| id.starts_with("msg_vrtx_")) =>
+                    {
+                        Some(format!("vertexai.{}", m))
+                    }
+                    other => other,
+                };
+
                 Some(Record {
                     timestamp,
                     provider: Cow::Borrowed("claude-code"),
-                    model: message.model,
+                    model,
                     input_tokens: usage.input_tokens.unwrap_or(0),
                     output_tokens: usage.output_tokens.unwrap_or(0),
                     cache_read_tokens: usage.cache_read_input_tokens.unwrap_or(0),

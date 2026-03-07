@@ -37,6 +37,9 @@ pub fn display_client(raw: &str) -> String {
 /// "openai/gpt-4o" -> "gpt-4o"
 #[must_use]
 pub fn display_model(raw: &str) -> String {
+    // Strip @... deployment suffix (e.g., "claude-opus-4-6@default" → "claude-opus-4-6")
+    let raw = raw.split('@').next().unwrap_or(raw);
+
     // Strip slash-based prefixes first (e.g., "bedrock/", "openai/")
     let after_slash = raw.split('/').next_back().unwrap_or(raw);
 
@@ -194,6 +197,12 @@ mod tests {
             display_model("bedrock/anthropic.claude-opus-4-1-20250805"),
             "opus-4-1"
         );
+        // @ suffix stripping (OpenCode deployment notation)
+        assert_eq!(display_model("claude-opus-4-6@default"), "opus-4-6");
+        assert_eq!(
+            display_model("vertexai.claude-opus-4-6@default"),
+            "opus-4-6"
+        );
     }
 
     #[test]
@@ -208,5 +217,7 @@ mod tests {
         assert_eq!(infer_api_provider("deepseek-v3"), "DeepSeek");
         assert_eq!(infer_api_provider("qwen-2.5-coder"), "Alibaba");
         assert_eq!(infer_api_provider("unknown-model"), "");
+        // Vertex AI detection via model prefix (Claude Code msg_vrtx_ detection)
+        assert_eq!(infer_api_provider("vertexai.claude-opus-4-6"), "Vertex AI");
     }
 }

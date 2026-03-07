@@ -124,6 +124,10 @@ impl PricingEngine {
 
     /// Three-level model matching
     fn find_pricing(&self, model: &str) -> Option<&ModelPricing> {
+        // Strip source-level provider prefix (e.g., "vertexai." from Vertex AI detection)
+        // so that the model name is clean for lookup against litellm pricing data.
+        let model = model.strip_prefix("vertexai.").unwrap_or(model);
+
         // 1. Exact match
         if let Some(p) = self.models.get(model) {
             return Some(p);
