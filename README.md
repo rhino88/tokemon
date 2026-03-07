@@ -46,10 +46,28 @@ Unified token usage tracking across all your AI coding tools. tokemon reads loca
 
 ## Installation
 
-### From crates.io
+### From crates.io (recommended)
 
 ```bash
-cargo install tokemon
+cargo install tokemon              # latest stable
+cargo install tokemon --version 0.1.0-alpha.1   # specific version
+```
+
+### Via Homebrew (macOS / Linux)
+
+```bash
+brew install mm65x/tap/tokemon
+```
+
+### Pre-built binaries
+
+Download from [GitHub Releases](https://github.com/mm65x/tokemon/releases) for Linux (x86/ARM), macOS (Intel/Apple Silicon), and Windows.
+
+Or use [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) for automatic binary downloads:
+
+```bash
+cargo binstall tokemon             # latest stable
+cargo binstall tokemon@0.1.0-alpha.1   # specific version
 ```
 
 ### From source
@@ -61,10 +79,6 @@ git clone https://github.com/mm65x/tokemon.git
 cd tokemon
 cargo install --path .
 ```
-
-### Pre-built binaries
-
-Download from [GitHub Releases](https://github.com/mm65x/tokemon/releases) (Linux, macOS, Windows).
 
 ## Quick Start
 
