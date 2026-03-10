@@ -138,8 +138,8 @@ pub enum Commands {
         #[arg(long, default_value = "today")]
         view: String,
 
-        /// Data refresh interval in seconds
-        #[arg(long, default_value = "2")]
+        /// Data refresh interval in seconds (0 = use config or default of 2s)
+        #[arg(long, default_value = "0")]
         interval: u64,
     },
 }

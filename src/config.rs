@@ -43,6 +43,9 @@ pub struct Config {
 
     /// Budget limits for pacemaker
     pub budget: BudgetConfig,
+
+    /// Polling interval for `tokemon top` in seconds (0 = use default of 2s)
+    pub tick_interval: u64,
 }
 
 /// Budget limits for the pacemaker system (all in USD)
@@ -57,7 +60,6 @@ pub struct BudgetConfig {
     /// Monthly spending limit
     pub monthly: Option<f64>,
 }
-
 
 /// Which columns to display in table output
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +91,7 @@ impl Default for Config {
             refresh: false,
             reparse: false,
             budget: BudgetConfig::default(),
+            tick_interval: 0,
         }
     }
 }
@@ -159,6 +162,14 @@ impl Config {
                 self.sort_order, defaults.sort_order
             );
             self.sort_order = defaults.sort_order;
+        }
+
+        if self.tick_interval > 300 {
+            eprintln!(
+                "[tokemon] Warning: tick_interval {} exceeds maximum (300s); clamping",
+                self.tick_interval
+            );
+            self.tick_interval = 300;
         }
 
         self

@@ -39,7 +39,15 @@ fn main() -> anyhow::Result<()> {
         Some(Commands::Sessions { top }) => cmd_sessions(&cli, &config, *top),
         Some(Commands::Prune { before }) => cmd_prune(*before),
         Some(Commands::Mcp) => mcp::run(&cli, &config),
-        Some(Commands::Top { view, interval }) => tui::run(&config, view, *interval),
+        Some(Commands::Top { view, interval }) => {
+            // CLI --interval overrides config, config overrides hardcoded default
+            let tick = if *interval > 0 {
+                *interval
+            } else {
+                config.tick_interval
+            };
+            tui::run(&config, view, tick)
+        }
     }
 }
 
