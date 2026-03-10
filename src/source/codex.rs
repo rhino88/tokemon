@@ -57,25 +57,8 @@ impl super::Source for CodexSource {
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        // Structure: sessions/YYYY/MM/DD/rollout-*.jsonl
-        let mut files = Vec::new();
-        let Ok(years) = fs::read_dir(&self.base_dir) else {
-            return files;
-        };
-        for year in years.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()) {
-            let Ok(months) = fs::read_dir(year.path()) else {
-                continue;
-            };
-            for month in months.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()) {
-                let Ok(days) = fs::read_dir(month.path()) else {
-                    continue;
-                };
-                for day in days.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()) {
-                    files.extend(super::discover::collect_by_ext(&day.path(), "jsonl"));
-                }
-            }
-        }
-        files
+        // Structure: sessions/YYYY/MM/DD/rollout-*.jsonl (depth 4)
+        super::discover::walk_by_ext(&self.base_dir, "jsonl", 4)
     }
 
     fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
