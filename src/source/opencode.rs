@@ -167,7 +167,7 @@ impl super::Source for OpenCodeSource {
                     cache_read_tokens: cache_read.max(0) as u64,
                     cache_creation_tokens: cache_write.max(0) as u64,
                     thinking_tokens: reasoning_tokens.max(0) as u64,
-                    cost_usd: cost.filter(|&c| c > 0.0),
+                    cost_usd: cost,
                     message_id: None,
                     request_id: None,
                     session_id: Some(session_id),
