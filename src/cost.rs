@@ -87,11 +87,12 @@ impl PricingEngine {
         let mut pricing_cache: HashMap<&str, Option<&ModelPricing>> = HashMap::new();
 
         for entry in entries.iter_mut() {
-            // If entry already has a cost, keep it
-            if let Some(cost) = entry.cost_usd {
-                if cost > 0.0 {
-                    continue;
-                }
+            // If entry already has a cost (even $0.00), keep it.
+            // Some(0.0) means "already priced, result was zero" (e.g.
+            // free model or no pricing data). Re-pricing would cause
+            // cost fluctuations when records are loaded from cache.
+            if entry.cost_usd.is_some() {
+                continue;
             }
 
             let model = match &entry.model {

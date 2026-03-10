@@ -12,7 +12,7 @@ use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use tokio::sync::mpsc;
 
 use crate::source::SourceSet;
-use crate::{cache, cost, dedup};
+use crate::{cache, dedup};
 
 use super::event::Event;
 
@@ -26,10 +26,9 @@ use super::event::Event;
 /// # Arguments
 ///
 /// * `event_tx` — channel to notify the TUI of data changes and warnings
-/// * `no_cost` — whether to skip pricing (from config)
-pub fn start(event_tx: mpsc::UnboundedSender<Event>, no_cost: bool) {
+pub fn start(event_tx: mpsc::UnboundedSender<Event>) {
     std::thread::spawn(move || {
-        if let Err(e) = run_watcher(&event_tx, no_cost) {
+        if let Err(e) = run_watcher(&event_tx) {
             let _ = event_tx.send(Event::Warning(format!("File watcher failed: {e}")));
         }
     });
@@ -41,7 +40,7 @@ fn warn(tx: &mpsc::UnboundedSender<Event>, msg: String) {
     let _ = tx.send(Event::Warning(msg));
 }
 
-fn run_watcher(event_tx: &mpsc::UnboundedSender<Event>, no_cost: bool) -> anyhow::Result<()> {
+fn run_watcher(event_tx: &mpsc::UnboundedSender<Event>) -> anyhow::Result<()> {
     let registry = SourceSet::new();
     let available = registry.available();
 
@@ -78,13 +77,6 @@ fn run_watcher(event_tx: &mpsc::UnboundedSender<Event>, no_cost: bool) -> anyhow
         }
     }
 
-    // Load pricing engine once for the entire watcher lifetime
-    let pricing = if no_cost {
-        None
-    } else {
-        cost::PricingEngine::load(true).ok()
-    };
-
     // Process debounced events
     loop {
         match rx.recv() {
@@ -96,7 +88,7 @@ fn run_watcher(event_tx: &mpsc::UnboundedSender<Event>, no_cost: bool) -> anyhow
 
                 if has_changes {
                     // Re-parse changed files and update the cache
-                    if let Err(e) = incremental_update(&registry, no_cost, pricing.as_ref()) {
+                    if let Err(e) = incremental_update(&registry) {
                         warn(event_tx, format!("Incremental update failed: {e}"));
                     }
 
@@ -125,11 +117,7 @@ fn run_watcher(event_tx: &mpsc::UnboundedSender<Event>, no_cost: bool) -> anyhow
 /// This mirrors the logic in `main.rs::parse_with_cache` but is designed
 /// to run from a background thread. It only re-parses files whose
 /// modification time has changed since the last cache write.
-fn incremental_update(
-    registry: &SourceSet,
-    no_cost: bool,
-    pricing: Option<&cost::PricingEngine>,
-) -> anyhow::Result<()> {
+fn incremental_update(registry: &SourceSet) -> anyhow::Result<()> {
     let mut cache = cache::Cache::open()?;
     let cached_mtimes = cache.cached_file_mtimes()?;
 
@@ -158,13 +146,10 @@ fn incremental_update(
 
     for (provider, file, mtime) in &files_to_parse {
         match provider.parse_file(file) {
-            Ok(mut entries) => {
-                // Apply pricing if enabled (using pre-loaded engine)
-                if !no_cost {
-                    if let Some(engine) = pricing {
-                        engine.apply_costs(&mut entries);
-                    }
-                }
+            Ok(entries) => {
+                // Don't apply pricing here — the cache stores raw source
+                // data. Pricing is applied at read time in
+                // load_records_from_cache(), matching the CLI path.
                 let entries = dedup::deduplicate(entries);
                 parsed_files.push((file.as_path(), *mtime, entries));
             }

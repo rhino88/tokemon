@@ -916,12 +916,10 @@ impl App {
                 if cached_mtimes.get(&file_key) == Some(&mtime) {
                     continue;
                 }
-                if let Ok(mut entries) = provider.parse_file(&file) {
-                    if !self.no_cost {
-                        if let Some(engine) = self.pricing.as_ref() {
-                            engine.apply_costs(&mut entries);
-                        }
-                    }
+                if let Ok(entries) = provider.parse_file(&file) {
+                    // Don't apply pricing here — the cache stores raw source
+                    // data. Pricing is applied at read time in
+                    // load_records_from_cache(), matching the CLI path.
                     let entries = dedup::deduplicate(entries);
                     parsed.push((file, mtime, entries));
                 }

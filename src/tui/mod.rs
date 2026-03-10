@@ -60,7 +60,7 @@ async fn run_async(config: &Config, scope: Scope, tick_secs: u64) -> anyhow::Res
     // Start the file watcher in the background.
     // It will send Event::DataChanged when source files are modified.
     let event_tx = events.sender();
-    watcher::start(event_tx, config.no_cost);
+    watcher::start(event_tx);
 
     // Main loop
     loop {
