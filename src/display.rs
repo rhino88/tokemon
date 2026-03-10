@@ -157,7 +157,10 @@ fn model_matches_prefix(model: &str, prefix: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('-'))
 }
 
-fn strip_date_suffix(s: &str) -> &str {
+/// Strip a trailing date suffix like `-YYYYMMDD` from a model name.
+///
+/// Returns the input unchanged if no date suffix is found.
+pub fn strip_date_suffix(s: &str) -> &str {
     if s.len() >= 9 {
         let last_9 = &s[s.len() - 9..];
         if last_9.starts_with('-')

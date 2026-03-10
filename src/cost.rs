@@ -227,22 +227,6 @@ impl PricingEngine {
 
 fn normalize_model_name(model: &str) -> String {
     let s = model.to_lowercase();
-    // Strip date suffixes like -20250805, -20241022
-    let re_date = regex_strip_date(&s);
-    re_date.replace('.', "-")
-}
-
-/// Strip trailing date patterns like -YYYYMMDD
-fn regex_strip_date(s: &str) -> String {
-    // Match patterns like -20250805, -20241022 at end of string
-    if s.len() >= 9 {
-        let last_9 = &s[s.len() - 9..];
-        if last_9.starts_with('-')
-            && last_9[1..].chars().all(|c| c.is_ascii_digit())
-            && last_9[1..].len() == 8
-        {
-            return s[..s.len() - 9].to_string();
-        }
-    }
-    s.to_string()
+    let stripped = crate::display::strip_date_suffix(&s);
+    stripped.replace('.', "-")
 }
