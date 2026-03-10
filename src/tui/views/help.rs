@@ -33,7 +33,7 @@ pub fn render(frame: &mut Frame) {
     let inner = block.inner(popup_area);
 
     let bindings = vec![
-        ("t / w / m", "Switch scope (Today/Week/Month)"),
+        ("t / w / m / a", "Switch scope (Today/Week/Month/All)"),
         ("← / →", "Cycle scope left/right"),
         ("g", "Cycle group-by (model/client/both)"),
         ("h", "Toggle historical periods"),

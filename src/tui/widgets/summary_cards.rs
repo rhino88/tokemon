@@ -24,13 +24,15 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     ])
     .areas(area);
 
-    // First 3 cards have selectable scopes; All Time is display-only.
-    let scoped = [(Scope::Today, c1), (Scope::Week, c2), (Scope::Month, c3)];
+    let scoped = [
+        (Scope::Today, c1),
+        (Scope::Week, c2),
+        (Scope::Month, c3),
+        (Scope::AllTime, c4),
+    ];
     for (i, &(scope, card_area)) in scoped.iter().enumerate() {
         render_card(frame, card_area, &app.cards[i], scope == app.scope);
     }
-    // All Time card — never active (no scope association)
-    render_card(frame, c4, &app.cards[3], false);
 }
 
 fn render_card(frame: &mut Frame, area: Rect, card: &crate::tui::app::CardData, active: bool) {

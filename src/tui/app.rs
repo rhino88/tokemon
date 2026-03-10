@@ -27,6 +27,7 @@ pub enum Scope {
     Today,
     Week,
     Month,
+    AllTime,
 }
 
 impl Scope {
@@ -36,6 +37,7 @@ impl Scope {
             Self::Today => "Today",
             Self::Week => "This Week",
             Self::Month => "This Month",
+            Self::AllTime => "All Time",
         }
     }
 
@@ -49,6 +51,7 @@ impl Scope {
                 today - chrono::Duration::days(i64::from(today.weekday().num_days_from_monday()))
             }
             Self::Month => NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today),
+            Self::AllTime => NaiveDate::from_ymd_opt(2000, 1, 1).unwrap(),
         }
     }
 }
@@ -530,6 +533,10 @@ pub struct App {
     /// ISO (year, week) of the first bar in `all_time_base_sparkline`.
     /// Used to align with current-window bars when merging.
     all_time_base_start_week: Option<(i32, u32)>,
+    /// Aggregated model usage from historical records (before the in-memory
+    /// window). Computed once at startup. When the user views the All Time
+    /// scope, these are merged with current-window aggregations.
+    all_time_base_models: Vec<ModelUsage>,
 }
 
 impl App {
@@ -596,6 +603,7 @@ impl App {
             all_time_base_tokens: 0,
             all_time_base_sparkline: Vec::new(),
             all_time_base_start_week: None,
+            all_time_base_models: Vec::new(),
         };
         // Load pricing engine once (offline to avoid blocking).
         if !config.no_cost {
@@ -734,6 +742,12 @@ impl App {
                 self.recompute_detail();
                 true
             }
+            KeyCode::Char('a') => {
+                self.scope = Scope::AllTime;
+                self.scroll_offset = 0;
+                self.recompute_detail();
+                true
+            }
             KeyCode::Char('s') => {
                 self.sort_order = self.sort_order.next();
                 self.recompute_detail();
@@ -759,8 +773,10 @@ impl App {
             }
             KeyCode::Left => {
                 let new_scope = match self.scope {
-                    Scope::Today | Scope::Week => Scope::Today,
+                    Scope::Today => Scope::Today,
+                    Scope::Week => Scope::Today,
                     Scope::Month => Scope::Week,
+                    Scope::AllTime => Scope::Month,
                 };
                 if new_scope != self.scope {
                     self.scope = new_scope;
@@ -772,7 +788,9 @@ impl App {
             KeyCode::Right => {
                 let new_scope = match self.scope {
                     Scope::Today => Scope::Week,
-                    Scope::Week | Scope::Month => Scope::Month,
+                    Scope::Week => Scope::Month,
+                    Scope::Month => Scope::AllTime,
+                    Scope::AllTime => Scope::AllTime,
                 };
                 if new_scope != self.scope {
                     self.scope = new_scope;
@@ -949,6 +967,10 @@ impl App {
         let (sparkline, start_week) = build_weekly_sparkline_data(&historical);
         self.all_time_base_sparkline = sparkline;
         self.all_time_base_start_week = start_week;
+
+        // Aggregate into model-level breakdown for the detail table.
+        let summaries = rollup::aggregate_daily(&historical);
+        self.all_time_base_models = aggregate_summaries_to_models(&summaries, self.group_by);
     }
 
     /// Poll source files for mtime changes, re-parse any that changed,
@@ -1156,55 +1178,14 @@ impl App {
 
         // Aggregate into model-level breakdown for the selected scope
         let summaries = rollup::aggregate_daily(&filtered);
+        let window_models = aggregate_summaries_to_models(&summaries, self.group_by);
 
-        // Flatten all model usages across all days in the scope,
-        // grouping by the selected group-by mode.
-        let mut model_map: std::collections::HashMap<(String, String), ModelUsage> =
-            std::collections::HashMap::new();
-
-        for summary in &summaries {
-            for mu in &summary.models {
-                let key = match self.group_by {
-                    GroupBy::Model => (mu.model.clone(), String::new()),
-                    GroupBy::ModelClient => (mu.model.clone(), mu.provider.clone()),
-                    GroupBy::Client => (String::new(), mu.provider.clone()),
-                };
-                let entry = model_map.entry(key).or_insert_with(|| match self.group_by {
-                    GroupBy::Model => ModelUsage {
-                        model: mu.model.clone(),
-                        // Use the normalized name (not the first-seen raw
-                        // name) so that `infer_api_provider` returns the
-                        // model's native vendor (e.g. "Anthropic") rather
-                        // than a random routing layer from whichever client
-                        // happened to be inserted first.
-                        raw_model: mu.model.clone(),
-                        provider: String::new(),
-                        ..Default::default()
-                    },
-                    GroupBy::ModelClient => ModelUsage {
-                        model: mu.model.clone(),
-                        raw_model: mu.raw_model.clone(),
-                        provider: mu.provider.clone(),
-                        ..Default::default()
-                    },
-                    GroupBy::Client => ModelUsage {
-                        model: String::new(),
-                        raw_model: String::new(),
-                        provider: mu.provider.clone(),
-                        ..Default::default()
-                    },
-                });
-                entry.input_tokens += mu.input_tokens;
-                entry.output_tokens += mu.output_tokens;
-                entry.cache_read_tokens += mu.cache_read_tokens;
-                entry.cache_creation_tokens += mu.cache_creation_tokens;
-                entry.thinking_tokens += mu.thinking_tokens;
-                entry.cost_usd += mu.cost_usd;
-                entry.request_count += mu.request_count;
-            }
-        }
-
-        let mut models: Vec<ModelUsage> = model_map.into_values().collect();
+        // For All Time, merge historical base models with current window.
+        let mut models = if self.scope == Scope::AllTime {
+            merge_model_usages(&self.all_time_base_models, &window_models)
+        } else {
+            window_models
+        };
 
         // Apply provider/model filter if set
         if !self.applied_filter.is_empty() {
@@ -1255,12 +1236,84 @@ impl App {
         if self.show_history {
             self.history_summaries = match self.scope {
                 Scope::Today | Scope::Week => rollup::aggregate_daily(&filtered),
-                Scope::Month => rollup::aggregate_weekly(&filtered),
+                Scope::Month | Scope::AllTime => rollup::aggregate_weekly(&filtered),
             };
         } else {
             self.history_summaries.clear();
         }
     }
+}
+
+/// Aggregate `DailySummary` model usages into a flat `Vec<ModelUsage>`
+/// grouped by the selected `GroupBy` mode. Used by both `recompute_detail`
+/// and `compute_all_time_base`.
+fn aggregate_summaries_to_models(summaries: &[DailySummary], group_by: GroupBy) -> Vec<ModelUsage> {
+    let mut model_map: std::collections::HashMap<(String, String), ModelUsage> =
+        std::collections::HashMap::new();
+
+    for summary in summaries {
+        for mu in &summary.models {
+            let key = match group_by {
+                GroupBy::Model => (mu.model.clone(), String::new()),
+                GroupBy::ModelClient => (mu.model.clone(), mu.provider.clone()),
+                GroupBy::Client => (String::new(), mu.provider.clone()),
+            };
+            let entry = model_map.entry(key).or_insert_with(|| match group_by {
+                GroupBy::Model => ModelUsage {
+                    model: mu.model.clone(),
+                    raw_model: mu.model.clone(),
+                    provider: String::new(),
+                    ..Default::default()
+                },
+                GroupBy::ModelClient => ModelUsage {
+                    model: mu.model.clone(),
+                    raw_model: mu.raw_model.clone(),
+                    provider: mu.provider.clone(),
+                    ..Default::default()
+                },
+                GroupBy::Client => ModelUsage {
+                    model: String::new(),
+                    raw_model: String::new(),
+                    provider: mu.provider.clone(),
+                    ..Default::default()
+                },
+            });
+            entry.input_tokens += mu.input_tokens;
+            entry.output_tokens += mu.output_tokens;
+            entry.cache_read_tokens += mu.cache_read_tokens;
+            entry.cache_creation_tokens += mu.cache_creation_tokens;
+            entry.thinking_tokens += mu.thinking_tokens;
+            entry.cost_usd += mu.cost_usd;
+            entry.request_count += mu.request_count;
+        }
+    }
+
+    model_map.into_values().collect()
+}
+
+/// Merge two sets of `ModelUsage` by summing values for matching keys.
+fn merge_model_usages(base: &[ModelUsage], window: &[ModelUsage]) -> Vec<ModelUsage> {
+    let mut map: std::collections::HashMap<(String, String), ModelUsage> =
+        std::collections::HashMap::new();
+
+    for mu in base.iter().chain(window.iter()) {
+        let key = (mu.model.clone(), mu.provider.clone());
+        let entry = map.entry(key).or_insert_with(|| ModelUsage {
+            model: mu.model.clone(),
+            raw_model: mu.raw_model.clone(),
+            provider: mu.provider.clone(),
+            ..Default::default()
+        });
+        entry.input_tokens += mu.input_tokens;
+        entry.output_tokens += mu.output_tokens;
+        entry.cache_read_tokens += mu.cache_read_tokens;
+        entry.cache_creation_tokens += mu.cache_creation_tokens;
+        entry.thinking_tokens += mu.thinking_tokens;
+        entry.cost_usd += mu.cost_usd;
+        entry.request_count += mu.request_count;
+    }
+
+    map.into_values().collect()
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────
