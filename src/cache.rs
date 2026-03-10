@@ -7,6 +7,7 @@ use rusqlite::{params, types::Value, Connection, Row};
 
 use std::borrow::Cow;
 
+use crate::dedup;
 use crate::paths;
 use crate::types::Record;
 
@@ -179,11 +180,11 @@ impl Cache {
             Self::ENTRY_COLUMNS
         );
         let mut stmt = self.conn.prepare(&sql)?;
-        let entries = stmt
+        let entries: Vec<Record> = stmt
             .query_map([], Self::row_to_entry)?
             .filter_map(|r| r.ok())
             .collect();
-        Ok(entries)
+        Ok(dedup::deduplicate(entries))
     }
 
     /// Load cached entries with SQL-level filtering by date range and provider.
@@ -228,11 +229,11 @@ impl Cache {
         );
 
         let mut stmt = self.conn.prepare(&sql)?;
-        let entries = stmt
+        let entries: Vec<Record> = stmt
             .query_map(rusqlite::params_from_iter(param_values), Self::row_to_entry)?
             .filter_map(|r| r.ok())
             .collect();
-        Ok(entries)
+        Ok(dedup::deduplicate(entries))
     }
 
     /// Remove stale entries for a file and store new ones.

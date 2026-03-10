@@ -413,7 +413,7 @@ fn parse_with_cache(
         } else {
             cache.load_all_entries()?
         };
-        entries = dedup::deduplicate(entries);
+        // Dedup is handled inside load_all_entries / load_entries_filtered.
         entries.sort_by_key(|e| e.timestamp);
         return Ok(entries);
     }
@@ -512,7 +512,7 @@ fn parse_with_cache(
     } else {
         cache.load_all_entries()?
     };
-    entries = dedup::deduplicate(entries);
+    // Dedup is handled inside load_all_entries / load_entries_filtered.
     entries.sort_by_key(|e| e.timestamp);
     Ok(entries)
 }

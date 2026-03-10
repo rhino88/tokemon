@@ -1190,6 +1190,7 @@ fn load_records_from_cache(pricing: Option<&cost::PricingEngine>) -> Vec<Record>
         engine.apply_costs(&mut entries);
     }
 
+    // Dedup is handled inside load_entries_filtered.
     entries.sort_by_key(|e| e.timestamp);
     entries
 }
