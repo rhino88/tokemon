@@ -45,16 +45,7 @@ pub fn display_client(raw: &str) -> String {
 /// ```
 #[must_use]
 pub fn normalize_model(raw: &str) -> String {
-    // Strip @... deployment suffix
-    let raw = raw.split('@').next().unwrap_or(raw);
-    // Strip slash-based prefixes (e.g., "bedrock/", "openai/")
-    let after_slash = raw.split('/').next_back().unwrap_or(raw);
-    // Strip dot-based prefixes (e.g., "vertexai.", "anthropic.")
-    let s = after_slash
-        .strip_prefix("vertexai.")
-        .or_else(|| after_slash.strip_prefix("anthropic."))
-        .unwrap_or(after_slash);
-    strip_date_suffix(s).to_string()
+    strip_date_suffix(strip_routing_prefix(raw)).to_string()
 }
 
 /// Normalize a raw model name for display.
@@ -66,23 +57,31 @@ pub fn normalize_model(raw: &str) -> String {
 /// "openai/gpt-4o" -> "gpt-4o"
 #[must_use]
 pub fn display_model(raw: &str) -> String {
-    // Strip @... deployment suffix (e.g., "claude-opus-4-6@default" → "claude-opus-4-6")
-    let raw = raw.split('@').next().unwrap_or(raw);
-
-    // Strip slash-based prefixes first (e.g., "bedrock/", "openai/")
-    let after_slash = raw.split('/').next_back().unwrap_or(raw);
-
-    // Then strip dot-based prefixes (e.g., "vertexai.", "anthropic.")
-    let s = after_slash
-        .strip_prefix("vertexai.")
-        .or_else(|| after_slash.strip_prefix("anthropic."))
-        .unwrap_or(after_slash);
+    let s = strip_routing_prefix(raw);
 
     if let Some(rest) = s.strip_prefix("claude-") {
         return strip_date_suffix(rest).to_string();
     }
 
     strip_date_suffix(s).to_string()
+}
+
+/// Strip API routing prefixes from a model name.
+///
+/// Handles `@deploy` suffixes, slash-based prefixes (`openai/`, `bedrock/`),
+/// and dot-based prefixes (`vertexai.`, `anthropic.`).
+///
+/// Returns a `&str` borrowed from the input — no allocation.
+fn strip_routing_prefix(raw: &str) -> &str {
+    // Strip @... deployment suffix
+    let raw = raw.split('@').next().unwrap_or(raw);
+    // Strip slash-based prefixes (e.g., "bedrock/", "openai/")
+    let after_slash = raw.split('/').next_back().unwrap_or(raw);
+    // Strip dot-based prefixes (e.g., "vertexai.", "anthropic.")
+    after_slash
+        .strip_prefix("vertexai.")
+        .or_else(|| after_slash.strip_prefix("anthropic."))
+        .unwrap_or(after_slash)
 }
 
 /// Infer the API provider from the raw model name.
