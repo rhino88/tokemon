@@ -135,31 +135,19 @@ pub fn render(frame: &mut Frame, app: &App) {
         )));
     }
 
-    // Footer
-    lines.push(Line::from(""));
-    let footer_line = if state.editing {
-        Line::from(vec![
-            Span::styled("  Enter", theme::status_key()),
-            Span::styled(": Apply  ", theme::card_secondary()),
-            Span::styled("Esc", theme::status_key()),
-            Span::styled(": Cancel", theme::card_secondary()),
-        ])
-    } else {
-        Line::from(vec![
-            Span::styled("  W", theme::status_key()),
-            Span::styled(": Save  ", theme::card_secondary()),
-            Span::styled("Esc", theme::status_key()),
-            Span::styled(": Close  ", theme::card_secondary()),
-            Span::styled("\u{2191}\u{2193}", theme::status_key()),
-            Span::styled(": Navigate  ", theme::card_secondary()),
-            Span::styled("Enter", theme::status_key()),
-            Span::styled(": Edit/Toggle", theme::card_secondary()),
-        ])
-    };
-    lines.push(footer_line);
+    // Split inner into scrollable content area and fixed footer
+    let footer_height: u16 = if state.unsaved { 3 } else { 2 };
+    let content_height = inner.height.saturating_sub(footer_height);
+    let content_area = Rect::new(inner.x, inner.y, inner.width, content_height);
+    let footer_area = Rect::new(
+        inner.x,
+        inner.y + content_height,
+        inner.width,
+        footer_height,
+    );
 
-    // Determine scroll: if selected item is below visible area, scroll down
-    let visible_height = inner.height as usize;
+    // Determine scroll for content area
+    let visible_height = content_height as usize;
     let selected_line_idx = field_line_indices.get(state.selected).copied().unwrap_or(0);
 
     let scroll_offset = if selected_line_idx >= visible_height {
@@ -170,7 +158,55 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     #[allow(clippy::cast_possible_truncation)]
     let paragraph = Paragraph::new(lines).scroll((scroll_offset as u16, 0));
-    frame.render_widget(paragraph, inner);
+    frame.render_widget(paragraph, content_area);
+
+    // Fixed footer — always visible
+    let mut footer_lines: Vec<Line> = Vec::new();
+
+    // Unsaved changes prompt
+    if state.unsaved {
+        footer_lines.push(Line::from(vec![
+            Span::styled("  W", theme::status_key()),
+            Span::styled(
+                ": Save changes  ",
+                ratatui::style::Style::default()
+                    .fg(theme::YELLOW)
+                    .bg(theme::SURFACE),
+            ),
+            Span::styled("Esc", theme::status_key()),
+            Span::styled(": Discard", theme::card_secondary()),
+        ]));
+    }
+
+    let nav_line = if state.editing {
+        Line::from(vec![
+            Span::styled("  Enter", theme::status_key()),
+            Span::styled(": Apply  ", theme::card_secondary()),
+            Span::styled("Esc", theme::status_key()),
+            Span::styled(": Cancel", theme::card_secondary()),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("  \u{2191}\u{2193}", theme::status_key()),
+            Span::styled(": Navigate  ", theme::card_secondary()),
+            Span::styled("Enter", theme::status_key()),
+            Span::styled(": Edit/Toggle  ", theme::card_secondary()),
+            Span::styled("*", theme::text_dim()),
+            Span::styled(" Restart required", theme::text_dim()),
+        ])
+    };
+    footer_lines.push(nav_line);
+
+    // Save/close hint (when not showing unsaved prompt)
+    if !state.unsaved {
+        footer_lines.push(Line::from(vec![
+            Span::styled("  Esc", theme::status_key()),
+            Span::styled(": Close", theme::card_secondary()),
+        ]));
+    }
+
+    let footer_paragraph = Paragraph::new(footer_lines);
+    frame.render_widget(footer_paragraph, footer_area);
 }
 
 fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {

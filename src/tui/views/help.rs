@@ -45,8 +45,8 @@ pub fn render(frame: &mut Frame) {
         ("?", "Toggle this help"),
         ("q / Esc", "Quit (or clear filter)"),
         ("", ""),
-        ("", "Data refreshes every 2 seconds and"),
-        ("", "when source files change on disk."),
+        ("", "Data refreshes every tick interval."),
+        ("", "Bar durations configurable via S."),
     ];
 
     let lines: Vec<Line> = bindings

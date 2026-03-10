@@ -46,6 +46,21 @@ pub struct Config {
 
     /// Polling interval for `tokemon top` in seconds (0 = use default of 2s)
     pub tick_interval: u64,
+
+    /// Show sparkline trendlines in summary cards
+    pub show_sparklines: bool,
+
+    /// Sparkline metric: "tokens" or "cost"
+    pub sparkline_metric: String,
+
+    /// Today sparkline bucket size in minutes (default: 10)
+    pub today_bucket_mins: u64,
+
+    /// This Week sparkline bucket size in hours (default: 4)
+    pub week_bucket_hours: u64,
+
+    /// This Month sparkline bucket size in days (default: 1)
+    pub month_bucket_days: u64,
 }
 
 /// Budget limits for the pacemaker system (all in USD)
@@ -92,6 +107,11 @@ impl Default for Config {
             reparse: false,
             budget: BudgetConfig::default(),
             tick_interval: 0,
+            show_sparklines: true,
+            sparkline_metric: "tokens".to_string(),
+            today_bucket_mins: 10,
+            week_bucket_hours: 4,
+            month_bucket_days: 1,
         }
     }
 }
@@ -162,6 +182,25 @@ impl Config {
                 self.sort_order, defaults.sort_order
             );
             self.sort_order = defaults.sort_order;
+        }
+
+        if !matches!(self.sparkline_metric.as_str(), "tokens" | "cost") {
+            eprintln!(
+                "[tokemon] Warning: invalid sparkline_metric '{}'; using '{}'",
+                self.sparkline_metric, defaults.sparkline_metric
+            );
+            self.sparkline_metric = defaults.sparkline_metric;
+        }
+
+        // Clamp bucket sizes to sensible ranges
+        if self.today_bucket_mins == 0 || self.today_bucket_mins > 60 {
+            self.today_bucket_mins = defaults.today_bucket_mins;
+        }
+        if self.week_bucket_hours == 0 || self.week_bucket_hours > 24 {
+            self.week_bucket_hours = defaults.week_bucket_hours;
+        }
+        if self.month_bucket_days == 0 || self.month_bucket_days > 7 {
+            self.month_bucket_days = defaults.month_bucket_days;
         }
 
         if self.tick_interval > 300 {

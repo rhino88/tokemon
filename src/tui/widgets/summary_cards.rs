@@ -30,12 +30,25 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         (Scope::Month, c3),
         (Scope::AllTime, c4),
     ];
+    let show_sparklines = app.config.show_sparklines;
     for (i, &(scope, card_area)) in scoped.iter().enumerate() {
-        render_card(frame, card_area, &app.cards[i], scope == app.scope);
+        render_card(
+            frame,
+            card_area,
+            &app.cards[i],
+            scope == app.scope,
+            show_sparklines,
+        );
     }
 }
 
-fn render_card(frame: &mut Frame, area: Rect, card: &crate::tui::app::CardData, active: bool) {
+fn render_card(
+    frame: &mut Frame,
+    area: Rect,
+    card: &crate::tui::app::CardData,
+    active: bool,
+    show_sparklines: bool,
+) {
     // Card block with border
     let border_style = if active {
         theme::border().fg(theme::ACCENT)
@@ -110,9 +123,18 @@ fn render_card(frame: &mut Frame, area: Rect, card: &crate::tui::app::CardData, 
         frame.render_widget(tokens_line, card_areas[2]);
     }
 
-    // Sparkline (if space)
-    if card_areas.len() >= 4 && !card.sparkline.is_empty() {
-        let sparkline = Sparkline::default().data(&card.sparkline).style(
+    // Sparkline (if space and enabled)
+    if card_areas.len() >= 4 && !card.sparkline.is_empty() && show_sparklines {
+        // Ratatui's Sparkline renders the FIRST N data points (N = widget width).
+        // We want to show the most recent data, so slice to the tail.
+        let width = card_areas[3].width as usize;
+        let data = if card.sparkline.len() > width {
+            &card.sparkline[card.sparkline.len() - width..]
+        } else {
+            &card.sparkline
+        };
+
+        let sparkline = Sparkline::default().data(data).style(
             ratatui::style::Style::default()
                 .fg(if active {
                     theme::ACCENT

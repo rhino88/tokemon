@@ -52,13 +52,13 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let sort_label = format!("sort:{}", app.sort_order.label());
     let group_label = format!("group:{}", app.group_by.label());
     let bindings: Vec<(&str, &str)> = vec![
-        ("t/w/m", "scope"),
-        ("←/→", "scope"),
+        ("t/w/m/a", "scope"),
         ("g", &group_label),
         ("h", "history"),
         ("s", &sort_label),
         ("/", "filter"),
         ("j/k", "scroll"),
+        ("S", "settings"),
         ("?", "help"),
         ("q", "quit"),
     ];

@@ -174,24 +174,23 @@ pub enum SettingField {
     NoCost,
     DefaultCommand,
     SortOrder,
+    ShowSparklines,
+    SparklineMetric,
+    TodayBucketMins,
+    WeekBucketHours,
+    MonthBucketDays,
     BudgetDaily,
     BudgetWeekly,
     BudgetMonthly,
-    ColDate,
-    ColModel,
     ColApiProvider,
     ColClient,
     ColInput,
     ColOutput,
-    ColCacheWrite,
-    ColCacheRead,
-    ColTotalTokens,
-    ColCost,
 }
 
 impl SettingField {
     /// Total number of settings fields.
-    pub const COUNT: usize = 17;
+    pub const COUNT: usize = 16;
 
     /// All fields in display order.
     pub const ALL: [Self; Self::COUNT] = [
@@ -199,42 +198,40 @@ impl SettingField {
         Self::NoCost,
         Self::DefaultCommand,
         Self::SortOrder,
+        Self::ShowSparklines,
+        Self::SparklineMetric,
+        Self::TodayBucketMins,
+        Self::WeekBucketHours,
+        Self::MonthBucketDays,
         Self::BudgetDaily,
         Self::BudgetWeekly,
         Self::BudgetMonthly,
-        Self::ColDate,
-        Self::ColModel,
         Self::ColApiProvider,
         Self::ColClient,
         Self::ColInput,
         Self::ColOutput,
-        Self::ColCacheWrite,
-        Self::ColCacheRead,
-        Self::ColTotalTokens,
-        Self::ColCost,
     ];
 
     /// Display label for this field.
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
-            Self::TickInterval => "Tick Interval (s)",
+            Self::TickInterval => "Tick Interval (s) *",
             Self::NoCost => "Disable Costs",
             Self::DefaultCommand => "Default Command",
             Self::SortOrder => "Sort Order",
+            Self::ShowSparklines => "Show Sparklines",
+            Self::SparklineMetric => "Sparkline Metric",
+            Self::TodayBucketMins => "Today Bar (mins)",
+            Self::WeekBucketHours => "Week Bar (hours)",
+            Self::MonthBucketDays => "Month Bar (days)",
             Self::BudgetDaily => "Daily Budget ($)",
             Self::BudgetWeekly => "Weekly Budget ($)",
             Self::BudgetMonthly => "Monthly Budget ($)",
-            Self::ColDate => "Column: Date",
-            Self::ColModel => "Column: Model",
-            Self::ColApiProvider => "Column: API Provider",
-            Self::ColClient => "Column: Client",
-            Self::ColInput => "Column: Input",
-            Self::ColOutput => "Column: Output",
-            Self::ColCacheWrite => "Column: Cache Write",
-            Self::ColCacheRead => "Column: Cache Read",
-            Self::ColTotalTokens => "Column: Total Tokens",
-            Self::ColCost => "Column: Cost",
+            Self::ColApiProvider => "API Provider",
+            Self::ColClient => "Client",
+            Self::ColInput => "Input Tokens",
+            Self::ColOutput => "Output Tokens",
         }
     }
 
@@ -243,8 +240,9 @@ impl SettingField {
     pub fn section_header(self) -> Option<&'static str> {
         match self {
             Self::TickInterval => Some("General"),
+            Self::ShowSparklines => Some("Sparklines"),
             Self::BudgetDaily => Some("Budget Limits"),
-            Self::ColDate => Some("Columns"),
+            Self::ColApiProvider => Some("Columns"),
             _ => None,
         }
     }
@@ -255,23 +253,21 @@ impl SettingField {
         matches!(
             self,
             Self::NoCost
-                | Self::ColDate
-                | Self::ColModel
+                | Self::ShowSparklines
                 | Self::ColApiProvider
                 | Self::ColClient
                 | Self::ColInput
                 | Self::ColOutput
-                | Self::ColCacheWrite
-                | Self::ColCacheRead
-                | Self::ColTotalTokens
-                | Self::ColCost
         )
     }
 
     /// Whether this field is an enum that cycles through values.
     #[must_use]
     pub fn is_enum(self) -> bool {
-        matches!(self, Self::DefaultCommand | Self::SortOrder)
+        matches!(
+            self,
+            Self::DefaultCommand | Self::SortOrder | Self::SparklineMetric
+        )
     }
 
     /// Get the current value as a display string from a config.
@@ -289,6 +285,11 @@ impl SettingField {
             Self::NoCost => if config.no_cost { "Yes" } else { "No" }.to_string(),
             Self::DefaultCommand => config.default_command.clone(),
             Self::SortOrder => config.sort_order.clone(),
+            Self::ShowSparklines => if config.show_sparklines { "Yes" } else { "No" }.to_string(),
+            Self::SparklineMetric => config.sparkline_metric.clone(),
+            Self::TodayBucketMins => config.today_bucket_mins.to_string(),
+            Self::WeekBucketHours => config.week_bucket_hours.to_string(),
+            Self::MonthBucketDays => config.month_bucket_days.to_string(),
             Self::BudgetDaily => config
                 .budget
                 .daily
@@ -301,16 +302,10 @@ impl SettingField {
                 .budget
                 .monthly
                 .map_or("--".to_string(), |v| format!("{v:.2}")),
-            Self::ColDate => bool_display(config.columns.date),
-            Self::ColModel => bool_display(config.columns.model),
             Self::ColApiProvider => bool_display(config.columns.api_provider),
             Self::ColClient => bool_display(config.columns.client),
             Self::ColInput => bool_display(config.columns.input),
             Self::ColOutput => bool_display(config.columns.output),
-            Self::ColCacheWrite => bool_display(config.columns.cache_write),
-            Self::ColCacheRead => bool_display(config.columns.cache_read),
-            Self::ColTotalTokens => bool_display(config.columns.total_tokens),
-            Self::ColCost => bool_display(config.columns.cost),
         }
     }
 
@@ -318,16 +313,11 @@ impl SettingField {
     pub fn toggle_bool(self, config: &mut Config) {
         match self {
             Self::NoCost => config.no_cost = !config.no_cost,
-            Self::ColDate => config.columns.date = !config.columns.date,
-            Self::ColModel => config.columns.model = !config.columns.model,
+            Self::ShowSparklines => config.show_sparklines = !config.show_sparklines,
             Self::ColApiProvider => config.columns.api_provider = !config.columns.api_provider,
             Self::ColClient => config.columns.client = !config.columns.client,
             Self::ColInput => config.columns.input = !config.columns.input,
             Self::ColOutput => config.columns.output = !config.columns.output,
-            Self::ColCacheWrite => config.columns.cache_write = !config.columns.cache_write,
-            Self::ColCacheRead => config.columns.cache_read = !config.columns.cache_read,
-            Self::ColTotalTokens => config.columns.total_tokens = !config.columns.total_tokens,
-            Self::ColCost => config.columns.cost = !config.columns.cost,
             _ => {}
         }
     }
@@ -348,6 +338,12 @@ impl SettingField {
                     _ => "asc".to_string(),
                 };
             }
+            Self::SparklineMetric => {
+                config.sparkline_metric = match config.sparkline_metric.as_str() {
+                    "tokens" => "cost".to_string(),
+                    _ => "tokens".to_string(),
+                };
+            }
             _ => {}
         }
     }
@@ -359,6 +355,30 @@ impl SettingField {
             Self::TickInterval => {
                 if let Ok(v) = value.parse::<u64>() {
                     config.tick_interval = v.min(300);
+                    true
+                } else {
+                    false
+                }
+            }
+            Self::TodayBucketMins => {
+                if let Ok(v) = value.parse::<u64>() {
+                    config.today_bucket_mins = v.clamp(1, 60);
+                    true
+                } else {
+                    false
+                }
+            }
+            Self::WeekBucketHours => {
+                if let Ok(v) = value.parse::<u64>() {
+                    config.week_bucket_hours = v.clamp(1, 24);
+                    true
+                } else {
+                    false
+                }
+            }
+            Self::MonthBucketDays => {
+                if let Ok(v) = value.parse::<u64>() {
+                    config.month_bucket_days = v.clamp(1, 7);
                     true
                 } else {
                     false
@@ -376,6 +396,9 @@ impl SettingField {
     pub fn edit_value(self, config: &Config) -> String {
         match self {
             Self::TickInterval => config.tick_interval.to_string(),
+            Self::TodayBucketMins => config.today_bucket_mins.to_string(),
+            Self::WeekBucketHours => config.week_bucket_hours.to_string(),
+            Self::MonthBucketDays => config.month_bucket_days.to_string(),
             Self::BudgetDaily => config
                 .budget
                 .daily
@@ -475,6 +498,7 @@ pub struct App {
     /// Detail totals.
     pub detail_total_cost: f64,
     pub detail_total_tokens: u64,
+    pub detail_total_requests: u64,
     /// Historical summaries (populated when `show_history` is true).
     pub history_summaries: Vec<DailySummary>,
     /// Scroll offset for the detail table.
@@ -507,7 +531,7 @@ pub struct App {
     /// Set by event handlers, cleared after each frame is drawn.
     pub dirty: bool,
     /// Snapshot of config as passed to App (for settings editor).
-    config: Config,
+    pub(crate) config: Config,
     /// Cached pricing engine (loaded once at startup, reused for all reads).
     pricing: Option<cost::PricingEngine>,
     /// Source registry (created once, reused for tick-based polling).
@@ -579,6 +603,7 @@ impl App {
             detail_models: Vec::new(),
             detail_total_cost: 0.0,
             detail_total_tokens: 0,
+            detail_total_requests: 0,
             history_summaries: Vec::new(),
             scroll_offset: 0,
             should_quit: false,
@@ -917,12 +942,18 @@ impl App {
             }
             KeyCode::Char('W') => {
                 // Save to disk
-                match state.draft.save() {
+                let old_metric = self.config.sparkline_metric.clone();
+                match self.settings_state.draft.save() {
                     Ok(()) => {
-                        self.config = state.draft.clone();
-                        self.no_cost = state.draft.no_cost;
-                        state.unsaved = false;
-                        state.flash_message = Some(("Saved!".to_string(), Instant::now()));
+                        self.config = self.settings_state.draft.clone();
+                        self.no_cost = self.settings_state.draft.no_cost;
+                        self.settings_state.unsaved = false;
+                        self.settings_state.flash_message =
+                            Some(("Saved!".to_string(), Instant::now()));
+                        // Recompute all-time base if sparkline metric changed
+                        if self.config.sparkline_metric != old_metric {
+                            self.compute_all_time_base();
+                        }
                     }
                     Err(e) => {
                         self.last_warning =
@@ -964,7 +995,8 @@ impl App {
         self.all_time_base_tokens = historical.iter().map(|r| r.total_tokens()).sum();
 
         // Build weekly sparkline from historical records.
-        let (sparkline, start_week) = build_weekly_sparkline_data(&historical);
+        let use_cost = self.config.sparkline_metric == "cost";
+        let (sparkline, start_week) = build_weekly_sparkline_data(&historical, use_cost);
         self.all_time_base_sparkline = sparkline;
         self.all_time_base_start_week = start_week;
 
@@ -1106,6 +1138,7 @@ impl App {
 
     fn recompute_cards(&mut self) {
         let today = Utc::now().date_naive();
+        let use_cost = self.config.sparkline_metric == "cost";
 
         // Today card
         let today_records: Vec<&Record> = self
@@ -1126,8 +1159,15 @@ impl App {
         self.cards[1].cost = sum_cost(&week_records);
         self.cards[1].tokens = sum_tokens(&week_records);
 
-        // Build sparkline: 4-hour buckets for the week
-        self.cards[1].sparkline = build_4hr_sparkline(&self.cached_records, week_start);
+        // Build sparkline: N-hour buckets for the week
+        #[allow(clippy::cast_possible_truncation)]
+        let week_bucket_hours = self.config.week_bucket_hours as u32;
+        self.cards[1].sparkline = build_hour_sparkline(
+            &self.cached_records,
+            week_start,
+            week_bucket_hours,
+            use_cost,
+        );
 
         // This month card
         let month_start = Scope::Month.since();
@@ -1139,11 +1179,21 @@ impl App {
         self.cards[2].cost = sum_cost(&month_records);
         self.cards[2].tokens = sum_tokens(&month_records);
 
-        // Build sparkline: daily buckets for the month
-        self.cards[2].sparkline = build_daily_sparkline(&self.cached_records, month_start);
+        // Build sparkline: N-day buckets for the month
+        #[allow(clippy::cast_possible_truncation)]
+        let month_bucket_days = self.config.month_bucket_days as u32;
+        self.cards[2].sparkline = build_day_sparkline(
+            &self.cached_records,
+            month_start,
+            month_bucket_days,
+            use_cost,
+        );
 
-        // Today sparkline: 10-minute buckets
-        self.cards[0].sparkline = build_10min_sparkline(&self.cached_records);
+        // Today sparkline: N-minute buckets
+        #[allow(clippy::cast_possible_truncation)]
+        let today_bucket_mins = self.config.today_bucket_mins as u32;
+        self.cards[0].sparkline =
+            build_minute_sparkline(&self.cached_records, today_bucket_mins, use_cost);
 
         // All Time card: base (historical) + current window
         let window_cost: f64 = self
@@ -1158,6 +1208,7 @@ impl App {
             &self.all_time_base_sparkline,
             self.all_time_base_start_week,
             &self.cached_records,
+            use_cost,
         );
 
         // Compute trends from sparkline data
@@ -1230,6 +1281,7 @@ impl App {
 
         self.detail_total_cost = models.iter().map(|m| m.cost_usd).sum();
         self.detail_total_tokens = models.iter().map(|m| m.total_tokens()).sum();
+        self.detail_total_requests = models.iter().map(|m| m.request_count).sum();
         self.detail_models = models;
 
         // Historical summaries for the history view
@@ -1350,22 +1402,37 @@ fn sum_tokens(records: &[&Record]) -> u64 {
     records.iter().map(|r| r.total_tokens()).sum()
 }
 
-/// Build a sparkline of daily token totals for the last `days` days.
-/// Build a sparkline of 10-minute token buckets for today.
+/// Extract the sparkline metric value from a record.
+/// For "cost" mode, scales USD to millicents (x100_000) so small values are visible.
+fn sparkline_value(record: &Record, use_cost: bool) -> u64 {
+    if use_cost {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let v = (record.cost_usd.unwrap_or(0.0) * 100_000.0) as u64;
+        v
+    } else {
+        record.total_tokens()
+    }
+}
+
+/// Build a sparkline of 10-minute buckets for today.
 /// Produces one bucket per 10-minute slot from midnight to the current time.
-fn build_10min_sparkline(records: &[Record]) -> Vec<u64> {
+/// Build a sparkline of N-minute buckets for today.
+/// `bucket_mins` controls granularity (e.g. 1, 5, 10, 30, 60).
+fn build_minute_sparkline(records: &[Record], bucket_mins: u32, use_cost: bool) -> Vec<u64> {
+    let bucket_mins = bucket_mins.max(1);
     let now = Utc::now();
     let today = now.date_naive();
-    // Current slot index: (hour * 6) + (minute / 10)
-    let current_slot = (now.hour() * 6 + now.minute() / 10) as usize;
-    let num_slots = current_slot + 1; // include current slot
+    let total_minutes = now.hour() * 60 + now.minute();
+    let current_slot = (total_minutes / bucket_mins) as usize;
+    let num_slots = current_slot + 1;
     let mut data = vec![0u64; num_slots];
 
     for record in records {
         if record.timestamp.date_naive() == today {
-            let slot = (record.timestamp.hour() * 6 + record.timestamp.minute() / 10) as usize;
+            let rm = record.timestamp.hour() * 60 + record.timestamp.minute();
+            let slot = (rm / bucket_mins) as usize;
             if slot < num_slots {
-                data[slot] += record.total_tokens();
+                data[slot] += sparkline_value(record, use_cost);
             }
         }
     }
@@ -1373,18 +1440,22 @@ fn build_10min_sparkline(records: &[Record]) -> Vec<u64> {
     data
 }
 
-/// Build a sparkline of 4-hour token buckets since `since_date`.
-/// Produces one bucket per 4-hour slot from `since_date` midnight to now.
-fn build_4hr_sparkline(records: &[Record], since_date: NaiveDate) -> Vec<u64> {
+/// Build a sparkline of N-hour buckets since `since_date`.
+/// `bucket_hours` controls granularity (e.g. 1, 2, 4, 6, 12, 24).
+fn build_hour_sparkline(
+    records: &[Record],
+    since_date: NaiveDate,
+    bucket_hours: u32,
+    use_cost: bool,
+) -> Vec<u64> {
+    let bucket_hours = bucket_hours.max(1);
+    let slots_per_day = (24 + bucket_hours - 1) / bucket_hours; // ceil(24/bucket_hours)
     let now = Utc::now();
     let today = now.date_naive();
-    // Total number of days in the range (inclusive)
     let total_days = (today - since_date).num_days().max(0) as usize + 1;
-    // 6 slots per day (00:00, 04:00, 08:00, 12:00, 16:00, 20:00)
-    // For the last (current) day, include up to the current slot.
-    let current_slot = (now.hour() / 4) as usize;
+    let current_slot = (now.hour() / bucket_hours) as usize;
     let num_slots = if total_days > 1 {
-        (total_days - 1) * 6 + current_slot + 1
+        (total_days - 1) * slots_per_day as usize + current_slot + 1
     } else {
         current_slot + 1
     };
@@ -1396,30 +1467,39 @@ fn build_4hr_sparkline(records: &[Record], since_date: NaiveDate) -> Vec<u64> {
             continue;
         }
         let day_offset = (rd - since_date).num_days() as usize;
-        let slot_in_day = (record.timestamp.hour() / 4) as usize;
-        let idx = day_offset * 6 + slot_in_day;
+        let slot_in_day = (record.timestamp.hour() / bucket_hours) as usize;
+        let idx = day_offset * slots_per_day as usize + slot_in_day;
         if idx < num_slots {
-            data[idx] += record.total_tokens();
+            data[idx] += sparkline_value(record, use_cost);
         }
     }
 
     data
 }
 
-/// Build a sparkline of daily token buckets since `since_date`.
-fn build_daily_sparkline(records: &[Record], since_date: NaiveDate) -> Vec<u64> {
+/// Build a sparkline of N-day buckets since `since_date`.
+/// `bucket_days` controls granularity (e.g. 1, 2, 7).
+fn build_day_sparkline(
+    records: &[Record],
+    since_date: NaiveDate,
+    bucket_days: u32,
+    use_cost: bool,
+) -> Vec<u64> {
+    let bucket_days = bucket_days.max(1) as i64;
     let today = Utc::now().date_naive();
-    let days = (today - since_date).num_days().max(0) as usize + 1;
-    let mut data = vec![0u64; days];
+    let total_days = (today - since_date).num_days().max(0) + 1;
+    let num_slots = ((total_days + bucket_days - 1) / bucket_days) as usize; // ceil
+    let mut data = vec![0u64; num_slots];
 
     for record in records {
         let rd = record.timestamp.date_naive();
         if rd < since_date {
             continue;
         }
-        let idx = (rd - since_date).num_days() as usize;
-        if idx < days {
-            data[idx] += record.total_tokens();
+        let day_offset = (rd - since_date).num_days();
+        let idx = (day_offset / bucket_days) as usize;
+        if idx < num_slots {
+            data[idx] += sparkline_value(record, use_cost);
         }
     }
 
@@ -1429,7 +1509,10 @@ fn build_daily_sparkline(records: &[Record], since_date: NaiveDate) -> Vec<u64> 
 /// Build weekly sparkline data from a set of records.
 /// Returns `(sparkline_vec, start_week)` where `start_week` is `Some((iso_year, iso_week))`
 /// of the first bar, or `None` if no records.
-fn build_weekly_sparkline_data(records: &[Record]) -> (Vec<u64>, Option<(i32, u32)>) {
+fn build_weekly_sparkline_data(
+    records: &[Record],
+    use_cost: bool,
+) -> (Vec<u64>, Option<(i32, u32)>) {
     if records.is_empty() {
         return (Vec::new(), None);
     }
@@ -1479,7 +1562,7 @@ fn build_weekly_sparkline_data(records: &[Record]) -> (Vec<u64>, Option<(i32, u3
         let yw = (rd.iso_week().year(), rd.iso_week().week());
         let idx = iso_week_diff(start_yw, yw);
         if idx < total_weeks {
-            data[idx] += record.total_tokens();
+            data[idx] += sparkline_value(record, use_cost);
         }
     }
 
@@ -1504,6 +1587,7 @@ fn merge_weekly_sparklines(
     base: &[u64],
     base_start: Option<(i32, u32)>,
     current_records: &[Record],
+    use_cost: bool,
 ) -> Vec<u64> {
     let now = Utc::now().date_naive();
     let now_yw = (now.iso_week().year(), now.iso_week().week());
@@ -1514,7 +1598,7 @@ fn merge_weekly_sparklines(
 
     // If no base, just build from current records
     if base.is_empty() || base_start.is_none() {
-        let (sparkline, _) = build_weekly_sparkline_data(current_records);
+        let (sparkline, _) = build_weekly_sparkline_data(current_records, use_cost);
         return sparkline;
     }
 
@@ -1535,7 +1619,7 @@ fn merge_weekly_sparklines(
         let yw = (rd.iso_week().year(), rd.iso_week().week());
         let idx = iso_week_diff(start_yw, yw);
         if idx < total_weeks {
-            data[idx] += record.total_tokens();
+            data[idx] += sparkline_value(record, use_cost);
         }
     }
 

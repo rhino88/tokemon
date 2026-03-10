@@ -4,6 +4,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Block, Borders, Cell, Row, Table, TableState};
 use ratatui::Frame;
 
+use crate::config::ColumnConfig;
 use crate::display;
 use crate::render::{format_cost, format_tokens_short};
 use crate::tui::app::App;
@@ -46,8 +47,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    // Determine which columns fit
-    let cols = choose_columns(inner.width as usize);
+    // Determine which columns fit, then mask with user config toggles
+    let cols = choose_columns(inner.width as usize).mask(&app.config.columns);
 
     // Build header
     let header_cells: Vec<Cell> = cols
@@ -85,6 +86,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                 &summary.label,
                 "",
                 "",
+                summary.total_requests,
                 summary.total_input,
                 summary.total_output,
                 total,
@@ -103,6 +105,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                         "",
                         &format!("  {}", display::display_model(&mu.model)),
                         display::infer_api_provider(mu.effective_raw_model()),
+                        mu.request_count,
                         mu.input_tokens,
                         mu.output_tokens,
                         model_total,
@@ -149,6 +152,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                 &name_col,
                 &api_col,
                 &client_col,
+                mu.request_count,
                 mu.input_tokens,
                 mu.output_tokens,
                 total,
@@ -162,7 +166,11 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     // Total row
-    let total_cells = cols.build_total_row(app.detail_total_tokens, app.detail_total_cost);
+    let total_cells = cols.build_total_row(
+        app.detail_total_requests,
+        app.detail_total_tokens,
+        app.detail_total_cost,
+    );
     rows.push(Row::new(total_cells).height(1));
 
     let row_count = rows.len();
@@ -190,9 +198,22 @@ struct ColumnSet {
     show_client: bool,
     show_input: bool,
     show_output: bool,
+    show_requests: bool,
 }
 
 impl ColumnSet {
+    /// Mask responsive column choices against user config toggles.
+    /// A column is only shown if both the responsive set AND config allow it.
+    fn mask(self, cfg: &ColumnConfig) -> Self {
+        Self {
+            show_api: self.show_api && cfg.api_provider,
+            show_client: self.show_client && cfg.client,
+            show_requests: self.show_requests,
+            show_input: self.show_input && cfg.input,
+            show_output: self.show_output && cfg.output,
+        }
+    }
+
     fn headers(self) -> Vec<String> {
         let mut h = vec!["Model".to_string()];
         if self.show_api {
@@ -200,6 +221,9 @@ impl ColumnSet {
         }
         if self.show_client {
             h.push("Client".to_string());
+        }
+        if self.show_requests {
+            h.push("Reqs".to_string());
         }
         if self.show_input {
             h.push("Input".to_string());
@@ -220,6 +244,9 @@ impl ColumnSet {
         if self.show_client {
             w.push(Constraint::Length(14));
         }
+        if self.show_requests {
+            w.push(Constraint::Length(6));
+        }
         if self.show_input {
             w.push(Constraint::Length(8));
         }
@@ -237,6 +264,7 @@ impl ColumnSet {
         col0: &str,
         col1: &str,
         col2: &str,
+        requests: u64,
         input: u64,
         output: u64,
         total: u64,
@@ -261,6 +289,17 @@ impl ColumnSet {
         }
         if self.show_client {
             cells.push(Cell::from(Span::styled(col2.to_string(), name_style)));
+        }
+
+        // Requests column
+        if self.show_requests {
+            let s = if requests > 0 {
+                format_tokens_short(requests)
+            } else {
+                String::new()
+            };
+            let style = apply_highlight(base_style, highlight_intensity);
+            cells.push(Cell::from(Span::styled(s, style)));
         }
 
         // Token and cost columns get the green highlight effect
@@ -306,7 +345,12 @@ impl ColumnSet {
         cells
     }
 
-    fn build_total_row(self, total_tokens: u64, total_cost: f64) -> Vec<Cell<'static>> {
+    fn build_total_row(
+        self,
+        total_requests: u64,
+        total_tokens: u64,
+        total_cost: f64,
+    ) -> Vec<Cell<'static>> {
         let style = theme::total_row();
         let mut cells: Vec<Cell> = vec![Cell::from(Span::styled("TOTAL", style))];
         if self.show_api {
@@ -314,6 +358,12 @@ impl ColumnSet {
         }
         if self.show_client {
             cells.push(Cell::from(Span::styled("", style)));
+        }
+        if self.show_requests {
+            cells.push(Cell::from(Span::styled(
+                format_tokens_short(total_requests),
+                style,
+            )));
         }
         if self.show_input {
             cells.push(Cell::from(Span::styled("", style)));
@@ -332,31 +382,43 @@ impl ColumnSet {
 
 /// Choose which columns to display based on terminal width.
 fn choose_columns(width: usize) -> ColumnSet {
-    if width >= 80 {
+    if width >= 86 {
         ColumnSet {
             show_api: true,
             show_client: true,
+            show_requests: true,
             show_input: true,
             show_output: true,
         }
-    } else if width >= 65 {
+    } else if width >= 70 {
         ColumnSet {
             show_api: true,
             show_client: false,
+            show_requests: true,
             show_input: true,
             show_output: true,
         }
-    } else if width >= 50 {
+    } else if width >= 56 {
         ColumnSet {
             show_api: false,
             show_client: false,
+            show_requests: true,
             show_input: true,
             show_output: true,
+        }
+    } else if width >= 42 {
+        ColumnSet {
+            show_api: false,
+            show_client: false,
+            show_requests: true,
+            show_input: false,
+            show_output: false,
         }
     } else {
         ColumnSet {
             show_api: false,
             show_client: false,
+            show_requests: false,
             show_input: false,
             show_output: false,
         }
