@@ -342,7 +342,7 @@ fn render_breakdown(report: &Report, color: bool, cols: &BreakdownCols) -> Strin
                 row.push(display::infer_api_provider(model.effective_raw_model()).to_string());
             }
             if show_client {
-                row.push(display::display_client(&model.provider));
+                row.push(display::display_client(&model.provider).into_owned());
             }
             if show_in {
                 row.push(format_tokens_styled(model.input_tokens, color));
@@ -426,7 +426,7 @@ fn build_disambiguation_suffixes(
                 }
             }
             if !show_client {
-                parts.push(display::display_client(&models[i].provider));
+                parts.push(display::display_client(&models[i].provider).into_owned());
             }
 
             if parts.is_empty() {
@@ -723,7 +723,7 @@ pub fn print_csv_breakdown(report: &Report) {
                 "{},{},{},{},{},{},{},{},{},{},{:.2}",
                 csv_quote(&s.label),
                 csv_quote(&display::display_model(&m.model)),
-                csv_quote(&display::infer_api_provider(m.effective_raw_model())),
+                csv_quote(display::infer_api_provider(m.effective_raw_model())),
                 csv_quote(&display::display_client(&m.provider)),
                 m.input_tokens,
                 m.output_tokens,

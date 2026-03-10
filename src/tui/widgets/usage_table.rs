@@ -102,7 +102,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                     let sub_cells = cols.build_row(
                         "",
                         &format!("  {}", display::display_model(&mu.model)),
-                        &display::infer_api_provider(mu.effective_raw_model()),
+                        display::infer_api_provider(mu.effective_raw_model()),
                         mu.input_tokens,
                         mu.output_tokens,
                         model_total,
@@ -132,10 +132,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
                 crate::tui::app::GroupBy::ModelClient => (
                     display::display_model(&mu.model),
                     display::infer_api_provider(mu.effective_raw_model()).to_string(),
-                    display::display_client(&mu.provider),
+                    display::display_client(&mu.provider).into_owned(),
                 ),
                 crate::tui::app::GroupBy::Client => (
-                    display::display_client(&mu.provider),
+                    display::display_client(&mu.provider).into_owned(),
                     String::new(),
                     String::new(),
                 ),

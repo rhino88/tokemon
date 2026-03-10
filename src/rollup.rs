@@ -113,7 +113,7 @@ pub fn aggregate_by_session(entries: &[Record]) -> Vec<SessionSummary> {
             SessionSummary {
                 session_id: sid.to_string(),
                 date: earliest.date_naive(),
-                client: display::display_client(client),
+                client: display::display_client(client).into_owned(),
                 dominant_model: display::display_model(dominant_model),
                 input_tokens: input,
                 output_tokens: output,

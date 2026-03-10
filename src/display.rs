@@ -2,11 +2,13 @@
 //!
 //! Keeps all presentation logic separate from rendering layout.
 
+use std::borrow::Cow;
+
 /// Map a raw client identifier (source name) to a human-readable display name.
 /// "claude-code" -> "Claude Code", "roo-code" -> "Roo Code", etc.
 /// Unknown identifiers are returned as-is with title case.
 #[must_use]
-pub fn display_client(raw: &str) -> String {
+pub fn display_client(raw: &str) -> Cow<'static, str> {
     match raw {
         "claude-code" => "Claude Code".into(),
         "codex" => "Codex CLI".into(),
@@ -24,7 +26,7 @@ pub fn display_client(raw: &str) -> String {
         "qwen" => "Qwen Code".into(),
         "piebald" => "Piebald".into(),
         "cursor" => "Cursor".into(),
-        other => title_case(other),
+        other => Cow::Owned(title_case(other)),
     }
 }
 
