@@ -91,28 +91,28 @@ fn strip_routing_prefix(raw: &str) -> &str {
 /// "claude-opus-4-1" -> "Anthropic"
 /// "gpt-4o" -> "OpenAI"
 #[must_use]
-pub fn infer_api_provider(raw_model: &str) -> String {
+pub fn infer_api_provider(raw_model: &str) -> &'static str {
     // Explicit provider prefixes
     if raw_model.starts_with("vertexai.") {
-        return "Vertex AI".into();
+        return "Vertex AI";
     }
     if raw_model.starts_with("openai/") {
-        return "OpenAI".into();
+        return "OpenAI";
     }
     if raw_model.starts_with("anthropic/") {
-        return "Anthropic".into();
+        return "Anthropic";
     }
     if raw_model.starts_with("google/") {
-        return "Google".into();
+        return "Google";
     }
     if raw_model.starts_with("bedrock/") || raw_model.starts_with("amazon.") {
-        return "AWS Bedrock".into();
+        return "AWS Bedrock";
     }
     if raw_model.starts_with("azure/") {
-        return "Azure".into();
+        return "Azure";
     }
     if raw_model.starts_with("mistral/") {
-        return "Mistral".into();
+        return "Mistral";
     }
 
     // Strip any remaining slash-prefix for pattern matching
@@ -120,32 +120,32 @@ pub fn infer_api_provider(raw_model: &str) -> String {
 
     // Infer from model name patterns
     if model.starts_with("claude-") {
-        return "Anthropic".into();
+        return "Anthropic";
     }
     if model.starts_with("gemini-") || model.starts_with("gemma-") {
-        return "Google".into();
+        return "Google";
     }
     if model.starts_with("gpt-")
         || model_matches_prefix(model, "o1")
         || model_matches_prefix(model, "o3")
         || model_matches_prefix(model, "o4")
     {
-        return "OpenAI".into();
+        return "OpenAI";
     }
     if model.starts_with("qwen") {
-        return "Alibaba".into();
+        return "Alibaba";
     }
     if model.starts_with("deepseek") {
-        return "DeepSeek".into();
+        return "DeepSeek";
     }
     if model.starts_with("mistral") || model.starts_with("codestral") {
-        return "Mistral".into();
+        return "Mistral";
     }
     if model.contains("llama") {
-        return "Meta".into();
+        return "Meta";
     }
 
-    String::new()
+    ""
 }
 
 /// Check if model matches a prefix at a word boundary (exact match or followed by `-`).

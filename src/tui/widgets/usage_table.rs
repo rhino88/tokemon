@@ -126,12 +126,12 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
             let (name_col, api_col, client_col) = match app.group_by {
                 crate::tui::app::GroupBy::Model => (
                     display::display_model(&mu.model),
-                    display::infer_api_provider(mu.effective_raw_model()),
+                    display::infer_api_provider(mu.effective_raw_model()).to_string(),
                     String::new(),
                 ),
                 crate::tui::app::GroupBy::ModelClient => (
                     display::display_model(&mu.model),
-                    display::infer_api_provider(mu.effective_raw_model()),
+                    display::infer_api_provider(mu.effective_raw_model()).to_string(),
                     display::display_client(&mu.provider),
                 ),
                 crate::tui::app::GroupBy::Client => (

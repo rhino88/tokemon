@@ -339,7 +339,7 @@ fn render_breakdown(report: &Report, color: bool, cols: &BreakdownCols) -> Strin
             };
             let mut row: Vec<String> = vec![String::new(), label];
             if show_api {
-                row.push(display::infer_api_provider(model.effective_raw_model()));
+                row.push(display::infer_api_provider(model.effective_raw_model()).to_string());
             }
             if show_client {
                 row.push(display::display_client(&model.provider));
@@ -418,11 +418,11 @@ fn build_disambiguation_suffixes(
                 return None; // No duplicate, no suffix needed
             }
 
-            let mut parts = Vec::new();
+            let mut parts: Vec<String> = Vec::new();
             if !show_api {
                 let api = display::infer_api_provider(models[i].effective_raw_model());
                 if !api.is_empty() {
-                    parts.push(api);
+                    parts.push(api.to_string());
                 }
             }
             if !show_client {
