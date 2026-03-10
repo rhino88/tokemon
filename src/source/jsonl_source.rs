@@ -41,6 +41,12 @@ pub struct JsonlSource<C: JsonlSourceConfig> {
     _config: PhantomData<C>,
 }
 
+impl<C: JsonlSourceConfig> Default for JsonlSource<C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<C: JsonlSourceConfig> JsonlSource<C> {
     pub fn new() -> Self {
         Self {

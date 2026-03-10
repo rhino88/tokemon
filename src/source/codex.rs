@@ -14,6 +14,12 @@ pub struct CodexSource {
     base_dir: PathBuf,
 }
 
+impl Default for CodexSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CodexSource {
     pub fn new() -> Self {
         Self {

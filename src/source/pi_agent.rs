@@ -14,6 +14,12 @@ pub struct PiAgentSource {
     base_dir: PathBuf,
 }
 
+impl Default for PiAgentSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PiAgentSource {
     pub fn new() -> Self {
         Self {

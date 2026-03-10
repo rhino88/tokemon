@@ -36,6 +36,12 @@ pub struct JsonSessionSource<C: JsonSessionSourceConfig> {
     _config: PhantomData<C>,
 }
 
+impl<C: JsonSessionSourceConfig> Default for JsonSessionSource<C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<C: JsonSessionSourceConfig> JsonSessionSource<C> {
     pub fn new() -> Self {
         Self {

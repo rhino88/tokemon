@@ -47,9 +47,10 @@ terminal_size = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "native-tls-vendored"] }
 
 # TUI (tokemon top)
-ratatui = "0.29"
+ratatui = { version = "0.30", features = ["crossterm"] }
 crossterm = { version = "0.28", features = ["event-stream"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 futures-lite = "2"
 notify = "7"
 notify-debouncer-mini = "0.5"
+tachyonfx = "0.25"

@@ -161,7 +161,7 @@ impl PricingEngine {
         let mut best_len: usize = 0;
 
         for (key, pricing) in &self.models {
-            let plain_key = key.split('/').last().unwrap_or(key);
+            let plain_key = key.split('/').next_back().unwrap_or(key);
             let norm_key = normalize_model_name(plain_key);
 
             // Only match if our model starts with the pricing key

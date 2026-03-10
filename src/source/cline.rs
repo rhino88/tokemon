@@ -9,6 +9,12 @@ pub struct ClineSource {
     format: ClineFormat,
 }
 
+impl Default for ClineSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClineSource {
     pub fn new() -> Self {
         Self {

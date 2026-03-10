@@ -9,6 +9,12 @@ pub struct KiloCodeSource {
     format: ClineFormat,
 }
 
+impl Default for KiloCodeSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KiloCodeSource {
     pub fn new() -> Self {
         Self {

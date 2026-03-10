@@ -2,7 +2,7 @@
 //!
 //! Uses the `notify` crate to watch source data directories for changes.
 //! When a file changes, it re-parses that file and writes the updated
-//! records to the SQLite cache. The TUI is then notified via the event
+//! records to the `SQLite` cache. The TUI is then notified via the event
 //! channel to re-poll the cache.
 
 use std::path::PathBuf;
@@ -21,8 +21,8 @@ use super::event::Event;
 ///
 /// This spawns a thread that watches all available source data directories
 /// for file changes. When changes are detected (debounced to 500ms), it
-/// re-parses the changed files and updates the SQLite cache, then sends
-/// an `Event::DataChanged` through the event channel.
+/// re-parses the changed files and updates the `SQLite` cache, then sends
+/// an [`Event::DataChanged`] through the event channel.
 ///
 /// # Arguments
 ///
@@ -30,13 +30,13 @@ use super::event::Event;
 /// * `no_cost` — whether to skip pricing (from config)
 pub fn start(event_tx: mpsc::UnboundedSender<Event>, no_cost: bool) {
     std::thread::spawn(move || {
-        if let Err(e) = run_watcher(event_tx, no_cost) {
+        if let Err(e) = run_watcher(&event_tx, no_cost) {
             eprintln!("[tokemon] Warning: file watcher failed: {e}");
         }
     });
 }
 
-fn run_watcher(event_tx: mpsc::UnboundedSender<Event>, no_cost: bool) -> anyhow::Result<()> {
+fn run_watcher(event_tx: &mpsc::UnboundedSender<Event>, no_cost: bool) -> anyhow::Result<()> {
     let registry = SourceSet::new();
     let available = registry.available();
 

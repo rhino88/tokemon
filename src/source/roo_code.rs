@@ -9,6 +9,12 @@ pub struct RooCodeSource {
     format: ClineFormat,
 }
 
+impl Default for RooCodeSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RooCodeSource {
     pub fn new() -> Self {
         Self {

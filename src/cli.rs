@@ -79,7 +79,7 @@ pub struct Cli {
 impl Cli {
     /// Resolve display mode from CLI flag and config default
     pub fn display_mode(&self, config: &crate::config::Config) -> DisplayMode {
-        self.display.unwrap_or_else(|| {
+        self.display.unwrap_or({
             if config.breakdown {
                 DisplayMode::Breakdown
             } else {

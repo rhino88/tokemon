@@ -14,6 +14,12 @@ pub struct ClaudeCodeSource {
     base_dir: PathBuf,
 }
 
+impl Default for ClaudeCodeSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClaudeCodeSource {
     pub fn new() -> Self {
         Self {
@@ -77,7 +83,7 @@ impl super::Source for ClaudeCodeSource {
             };
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.is_file() && path.extension().map_or(false, |e| e == "jsonl") {
+                if path.is_file() && path.extension().is_some_and(|e| e == "jsonl") {
                     files.push(path);
                 } else if path.is_dir() {
                     // Check for subagents/ directory inside session UUID dirs

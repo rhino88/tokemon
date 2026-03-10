@@ -25,7 +25,7 @@ pub enum Event {
 /// tick / render events through an `mpsc` channel.
 pub struct EventHandler {
     rx: mpsc::UnboundedReceiver<Event>,
-    _tx: mpsc::UnboundedSender<Event>,
+    tx: mpsc::UnboundedSender<Event>,
     tick_rate: Duration,
     render_rate: Duration,
 }
@@ -40,7 +40,7 @@ impl EventHandler {
         let (tx, rx) = mpsc::unbounded_channel();
         Self {
             rx,
-            _tx: tx,
+            tx,
             tick_rate,
             render_rate,
         }
@@ -50,13 +50,13 @@ impl EventHandler {
     #[must_use]
     #[allow(dead_code)]
     pub fn sender(&self) -> mpsc::UnboundedSender<Event> {
-        self._tx.clone()
+        self.tx.clone()
     }
 
     /// Start the background event loop. This spawns a tokio task that
     /// reads crossterm events and emits tick/render events on intervals.
     pub fn start(&self) {
-        let tx = self._tx.clone();
+        let tx = self.tx.clone();
         let tick_rate = self.tick_rate;
         let render_rate = self.render_rate;
 

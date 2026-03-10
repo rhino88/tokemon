@@ -36,9 +36,15 @@ pub enum ChangeKind {
 }
 
 /// A detected change in the usage data.
+///
+/// Used by the animation system (Phase 3) to determine which rows
+/// need visual effects after a data refresh.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RowChange {
+    /// Unique identifier for the changed row (model+provider).
     pub key: RowKey,
+    /// What kind of change was detected.
     pub kind: ChangeKind,
 }
 

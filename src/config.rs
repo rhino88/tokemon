@@ -48,6 +48,7 @@ pub struct Config {
 /// Budget limits for the pacemaker system (all in USD)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct BudgetConfig {
     /// Daily spending limit
     pub daily: Option<f64>,
@@ -57,15 +58,6 @@ pub struct BudgetConfig {
     pub monthly: Option<f64>,
 }
 
-impl Default for BudgetConfig {
-    fn default() -> Self {
-        Self {
-            daily: None,
-            weekly: None,
-            monthly: None,
-        }
-    }
-}
 
 /// Which columns to display in table output
 #[derive(Debug, Clone, Serialize, Deserialize)]

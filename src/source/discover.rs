@@ -56,7 +56,7 @@ fn walk_collect(
 }
 
 fn has_ext(path: &Path, ext: &str) -> bool {
-    path.extension().map_or(false, |e| e == ext)
+    path.extension().is_some_and(|e| e == ext)
 }
 
 #[cfg(test)]

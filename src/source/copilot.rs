@@ -6,6 +6,12 @@ use crate::types::Record;
 
 pub struct CopilotSource;
 
+impl Default for CopilotSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CopilotSource {
     pub fn new() -> Self {
         Self

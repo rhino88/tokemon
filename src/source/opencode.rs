@@ -10,6 +10,12 @@ pub struct OpenCodeSource {
     db_path: PathBuf,
 }
 
+impl Default for OpenCodeSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OpenCodeSource {
     pub fn new() -> Self {
         Self {

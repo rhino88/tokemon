@@ -8,6 +8,12 @@ pub struct PiebaldSource {
     db_path: PathBuf,
 }
 
+impl Default for PiebaldSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PiebaldSource {
     pub fn new() -> Self {
         Self {

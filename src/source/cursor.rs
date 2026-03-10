@@ -10,6 +10,12 @@ pub struct CursorSource {
     base_dir: PathBuf,
 }
 
+impl Default for CursorSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CursorSource {
     pub fn new() -> Self {
         Self {
@@ -36,7 +42,7 @@ impl super::Source for CursorSource {
             .into_iter()
             .filter(|p| {
                 p.file_name()
-                    .map_or(false, |f| f.to_string_lossy().starts_with("usage"))
+                    .is_some_and(|f| f.to_string_lossy().starts_with("usage"))
             })
             .collect()
     }
