@@ -67,18 +67,8 @@ impl super::Source for PiAgentSource {
     }
 
     fn discover_files(&self) -> Vec<PathBuf> {
-        // Structure: sessions/{project}/*.jsonl
-        let Ok(projects) = fs::read_dir(&self.base_dir) else {
-            return Vec::new();
-        };
-        let mut files = Vec::new();
-        for project in projects
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_dir())
-        {
-            files.extend(super::discover::collect_by_ext(&project.path(), "jsonl"));
-        }
-        files
+        // Structure: sessions/{project}/*.jsonl (depth 2)
+        super::discover::walk_by_ext(&self.base_dir, "jsonl", 2)
     }
 
     fn parse_file(&self, path: &Path) -> Result<Vec<Record>> {
