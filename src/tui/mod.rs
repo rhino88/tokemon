@@ -70,20 +70,23 @@ async fn run_async(config: &Config, scope: Scope, tick_secs: u64) -> anyhow::Res
             break;
         };
 
-        let needs_draw = match &event {
-            Event::Render => true,
-            other => app.handle_event(other),
+        match &event {
+            Event::Render => {} // render ticks don't mark state dirty
+            other => {
+                app.handle_event(other);
+            }
         };
 
         if app.should_quit {
             break;
         }
 
-        // Always redraw — row highlights may be fading
-        if needs_draw || app.has_active_highlights() {
+        // Only redraw when state changed or highlight animations are fading
+        if app.dirty || app.has_active_highlights() {
             terminal.draw(|frame| {
                 views::dashboard::render(frame, &app);
             })?;
+            app.dirty = false;
         }
     }
 

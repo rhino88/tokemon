@@ -203,6 +203,9 @@ pub struct App {
     /// with the instant it was received. Displayed in the status bar
     /// for a few seconds then cleared.
     pub last_warning: Option<(String, Instant)>,
+    /// Whether the UI state has changed and needs a redraw.
+    /// Set by event handlers, cleared after each frame is drawn.
+    pub dirty: bool,
     /// Cached pricing engine (loaded once at startup, reused for all reads).
     pricing: Option<cost::PricingEngine>,
     /// Source registry (created once, reused for tick-based polling).
@@ -262,6 +265,7 @@ impl App {
             sort_order: SortOrder::CostDesc,
             highlight_map: HashMap::new(),
             last_warning: None,
+            dirty: true,
             pricing: None,
             registry: SourceSet::new(),
             no_cost: config.no_cost,
@@ -282,7 +286,11 @@ impl App {
     /// Handle an incoming event. Returns `true` if the UI needs a redraw.
     pub fn handle_event(&mut self, event: &Event) -> bool {
         match event {
-            Event::Key(key) => self.handle_key(*key),
+            Event::Key(key) => {
+                let changed = self.handle_key(*key);
+                self.dirty |= changed;
+                changed
+            }
             Event::Tick => {
                 // Poll source files for changes (lightweight mtime checks),
                 // re-parse any that changed, and update the cache.
@@ -290,25 +298,31 @@ impl App {
                 // tick-based polling catches changes that `notify` may miss
                 // (e.g. SQLite WAL writes on some platforms).
                 self.poll_sources();
-                self.reload_from_cache();
+                self.dirty |= self.reload_from_cache();
                 // Expire old warnings
                 if let Some((_, t)) = &self.last_warning {
                     if t.elapsed().as_secs_f64() >= WARNING_DISPLAY_SECS {
                         self.last_warning = None;
+                        self.dirty = true;
                     }
                 }
-                true
+                self.dirty
             }
             Event::DataChanged => {
                 // The watcher already wrote to the cache — just re-read it.
-                self.reload_from_cache();
-                true
+                self.dirty |= self.reload_from_cache();
+                self.dirty
             }
             Event::Warning(msg) => {
                 self.last_warning = Some((msg.clone(), Instant::now()));
+                self.dirty = true;
                 true
             }
-            Event::Resize(_, _) | Event::Render => true,
+            Event::Resize(_, _) => {
+                self.dirty = true;
+                true
+            }
+            Event::Render => false,
         }
     }
 
@@ -503,11 +517,12 @@ impl App {
     }
 
     /// Re-read the cache and recompute all derived state.
+    /// Returns `true` if data actually changed (new highlights or initial load).
     ///
     /// This is lightweight — it only queries SQLite and recomputes
     /// in-memory aggregations. File discovery and parsing are handled
     /// by the background watcher thread.
-    fn reload_from_cache(&mut self) {
+    fn reload_from_cache(&mut self) -> bool {
         let records = load_records_from_cache(self.pricing.as_ref());
         self.cached_records = records;
         self.recompute_cards();
@@ -520,11 +535,12 @@ impl App {
         if !self.initial_load_done {
             self.initial_load_done = true;
             self.prev_models = self.detail_models.clone();
-            return;
+            return true;
         }
 
         // Compute diff against previous state
         let changes = diff::diff(&prev, &self.detail_models);
+        let has_changes = !changes.is_empty();
         let now = Instant::now();
         for change in &changes {
             self.highlight_map.insert(change.key.clone(), now);
@@ -536,13 +552,17 @@ impl App {
 
         // Save current models for next diff
         self.prev_models = self.detail_models.clone();
+
+        has_changes
     }
 
-    /// Returns `true` if any per-row highlights are still fading.
+    /// Returns `true` if any per-row highlights are still actively fading.
     /// Used by the main loop to keep redrawing during animations.
     #[must_use]
     pub fn has_active_highlights(&self) -> bool {
-        !self.highlight_map.is_empty()
+        self.highlight_map
+            .values()
+            .any(|t| t.elapsed().as_secs_f64() < HIGHLIGHT_DURATION_SECS)
     }
 
     /// Return the highlight intensity (0.0–1.0) for a given row key.
