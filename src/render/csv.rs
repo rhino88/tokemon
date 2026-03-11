@@ -53,14 +53,10 @@ pub fn print_csv_breakdown(report: &Report) {
 pub fn print_csv_sessions(report: &SessionReport) {
     println!("session_id,date,client,model,input,output,cache_write,cache_read,thinking,total_tokens,cost");
     for s in &report.sessions {
-        let sid = if s.session_id.len() > 8 {
-            &s.session_id[..8]
-        } else {
-            &s.session_id
-        };
+        let sid: String = s.session_id.chars().take(8).collect();
         println!(
             "{},{},{},{},{},{},{},{},{},{},{:.2}",
-            csv_quote(sid),
+            csv_quote(&sid),
             s.date.format("%Y-%m-%d"),
             csv_quote(&s.client),
             csv_quote(&s.dominant_model),

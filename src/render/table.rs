@@ -578,13 +578,9 @@ pub fn print_sessions_table(report: &SessionReport) {
     builder.push_record(header);
 
     for s in &report.sessions {
-        let sid = if s.session_id.len() > 8 {
-            &s.session_id[..8]
-        } else {
-            &s.session_id
-        };
+        let sid: String = s.session_id.chars().take(8).collect();
         let row: Vec<String> = vec![
-            sid.to_string(),
+            sid,
             s.date.format("%Y-%m-%d").to_string(),
             s.client.clone(),
             s.dominant_model.clone(),

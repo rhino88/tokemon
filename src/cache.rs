@@ -417,10 +417,6 @@ impl Cache {
         &self,
         discovered_files: &std::collections::HashSet<String>,
     ) -> crate::error::Result<()> {
-        if discovered_files.is_empty() {
-            return Ok(());
-        }
-
         // Get all distinct source files in the cache
         let mut stmt = self
             .conn
@@ -639,14 +635,14 @@ mod tests {
     }
 
     #[test]
-    fn test_mark_preserved_empty_discovered_is_noop() {
+    fn test_mark_preserved_empty_discovered_marks_all() {
         let cache = test_cache();
         let entries = vec![make_record("claude-code", "2026-02-20T10:00:00Z", None)];
         cache
             .store_file_entries(Path::new("/data/file.jsonl"), 1000, &entries)
             .unwrap();
 
-        // Empty discovered set should not mark anything
+        // Empty discovered set should mark everything as preserved
         cache.mark_preserved(&HashSet::new()).unwrap();
 
         let preserved_count: i64 = cache
@@ -657,7 +653,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(preserved_count, 0);
+        assert_eq!(preserved_count, 1);
     }
 
     #[test]

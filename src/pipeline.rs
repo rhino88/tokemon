@@ -26,6 +26,7 @@ pub struct PipelineOptions {
     pub offline: bool,
     pub refresh: bool,
     pub reparse: bool,
+    pub global_run: bool,
 }
 
 impl PipelineOptions {
@@ -43,6 +44,7 @@ impl PipelineOptions {
             offline: cli.offline || config.offline,
             refresh: cli.refresh || config.refresh,
             reparse: cli.reparse || config.reparse,
+            global_run: cli.providers.is_empty() && config.providers.is_empty(),
         }
     }
 }
@@ -75,7 +77,7 @@ pub fn load_and_price(
 /// 1. Get all cached (file, mtime) pairs in one query
 /// 2. Discover provider files and check which have changed
 /// 3. Only parse changed files, store results in cache
-/// 4. Load everything from cache in one bulk query
+#[allow(clippy::too_many_lines)]
 fn parse_with_cache(
     registry: &SourceSet,
     opts: &PipelineOptions,
@@ -134,7 +136,7 @@ fn parse_with_cache(
     // Mark entries from deleted files as preserved (only when discovering all providers,
     // otherwise we'd incorrectly mark entries from non-filtered providers).
     // Best-effort: log a warning if it fails rather than aborting the pipeline.
-    if opts.providers.is_empty() {
+    if opts.global_run {
         if let Err(e) = cache.mark_preserved(&discovered_files) {
             eprintln!("[tokemon] Warning: failed to mark preserved entries: {e}");
         }
@@ -156,6 +158,7 @@ fn parse_with_cache(
         .collect();
 
     // Parse changed files in parallel, then store in a single transaction
+    let mut parsed_fallback = Vec::new();
     if files_to_parse.is_empty() {
         // No files changed, but update the discovery timestamp so we
         // don't re-discover on the next invocation within the interval.
@@ -191,7 +194,12 @@ fn parse_with_cache(
                 }
                 Err(e) => {
                     eprintln!("[tokemon] Warning: cache write failed: {e}");
-                    // Fall through — we'll still load whatever is in the cache
+                    // Save the parsed entries to append directly to the loaded entries
+                    // since they failed to write to the database
+                    parsed_fallback = parsed
+                        .into_iter()
+                        .flat_map(|(_, _, entries)| entries)
+                        .collect();
                 }
             }
         }
@@ -202,6 +210,12 @@ fn parse_with_cache(
     } else {
         cache.load_all_entries()?
     };
+
+    if !parsed_fallback.is_empty() {
+        entries.extend(parsed_fallback);
+        entries = dedup::deduplicate(entries);
+    }
+
     // Dedup is handled inside load_all_entries / load_entries_filtered.
     entries.sort_by_key(|e| e.timestamp);
     Ok(entries)
@@ -212,7 +226,7 @@ fn resolve_source_refs<'a>(
     filter: &[String],
 ) -> crate::error::Result<Vec<&'a dyn source::Source>> {
     if filter.is_empty() {
-        return Ok(registry.available());
+        return Ok(registry.all());
     }
 
     filter

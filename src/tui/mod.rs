@@ -30,7 +30,12 @@ const RENDER_FPS: u64 = 30;
 /// # Errors
 ///
 /// Returns an error if terminal initialisation fails.
-pub fn run(config: &Config, initial_view: &str, tick_interval: u64) -> anyhow::Result<()> {
+pub fn run(
+    config: &Config,
+    initial_view: &str,
+    tick_interval: u64,
+    offline: bool,
+) -> anyhow::Result<()> {
     let scope = match initial_view {
         "week" | "w" => Scope::Week,
         "month" | "m" => Scope::Month,
@@ -48,12 +53,17 @@ pub fn run(config: &Config, initial_view: &str, tick_interval: u64) -> anyhow::R
         .enable_all()
         .build()?;
 
-    runtime.block_on(async { run_async(config, scope, tick_secs).await })
+    runtime.block_on(async { run_async(config, scope, tick_secs, offline).await })
 }
 
-async fn run_async(config: &Config, scope: Scope, tick_secs: u64) -> anyhow::Result<()> {
+async fn run_async(
+    config: &Config,
+    scope: Scope,
+    tick_secs: u64,
+    offline: bool,
+) -> anyhow::Result<()> {
     let mut terminal = terminal::init()?;
-    let mut app = App::new(config, scope);
+    let mut app = App::new(config, scope, offline);
 
     let mut events = EventHandler::new(
         Duration::from_secs(tick_secs),
@@ -67,15 +77,31 @@ async fn run_async(config: &Config, scope: Scope, tick_secs: u64) -> anyhow::Res
     watcher::start(event_tx);
 
     // Main loop
+    let mut was_animating = false;
     loop {
-        let Some(event) = events.next().await else {
+        let Some(mut event) = events.next().await else {
             break;
         };
 
-        match &event {
-            Event::Render => {} // render ticks don't mark state dirty
-            other => {
-                app.handle_event(other);
+        loop {
+            match &event {
+                Event::Render => {} // render ticks don't mark state dirty
+                other => {
+                    app.handle_event(other);
+                }
+            }
+
+            if app.should_quit {
+                break;
+            }
+
+            match events.try_next() {
+                Ok(next_event) => {
+                    event = next_event;
+                }
+                Err(_) => {
+                    break;
+                }
             }
         }
 
@@ -83,8 +109,14 @@ async fn run_async(config: &Config, scope: Scope, tick_secs: u64) -> anyhow::Res
             break;
         }
 
+        let is_animating = app.has_active_highlights();
+        if was_animating && !is_animating {
+            app.dirty = true;
+        }
+        was_animating = is_animating;
+
         // Only redraw when state changed or highlight animations are fading
-        if app.dirty || app.has_active_highlights() {
+        if app.dirty || is_animating {
             terminal.draw(|frame| {
                 views::dashboard::render(frame, &app);
             })?;

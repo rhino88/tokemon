@@ -62,7 +62,8 @@ fn main() -> anyhow::Result<()> {
             } else {
                 config.tick_interval
             };
-            tui::run(&config, view, tick)
+            let offline = cli.offline || config.offline;
+            tui::run(&config, view, tick, offline)
         }
     }
 }

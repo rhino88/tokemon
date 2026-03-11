@@ -76,11 +76,25 @@ impl super::Source for PiAgentSource {
         let reader = BufReader::with_capacity(64 * 1024, file);
         let session_id = timestamp::extract_session_id(path);
 
+        let mut error_logged = false;
         let entries = reader
             .lines()
             .map_while(std::result::Result::ok)
             .filter(|line| line.contains("\"message\"") && line.contains("\"assistant\""))
-            .filter_map(|line| serde_json::from_str::<PiLine>(&line).ok())
+            .filter_map(|line| match serde_json::from_str::<PiLine>(&line) {
+                Ok(parsed) => Some(parsed),
+                Err(e) => {
+                    if !error_logged {
+                        eprintln!(
+                            "[tokemon] Warning: skipped malformed JSON in {}: {}",
+                            path.display(),
+                            e
+                        );
+                        error_logged = true;
+                    }
+                    None
+                }
+            })
             .filter(|parsed| parsed.line_type.as_deref() == Some("message"))
             .filter_map(|parsed| {
                 let message = parsed.message?;

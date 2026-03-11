@@ -219,7 +219,7 @@ pub struct App {
 
 impl App {
     /// Create a new app and perform the initial data load.
-    pub fn new(config: &Config, initial_scope: Scope) -> Self {
+    pub fn new(config: &Config, initial_scope: Scope, offline: bool) -> Self {
         let mut app = Self {
             scope: initial_scope,
             group_by: GroupBy::ModelClient,
@@ -286,11 +286,11 @@ impl App {
         };
         // Load pricing engine once. Try offline first (fast path using
         // cached pricing.json). If the cache doesn't exist yet (fresh
-        // install), fall back to a one-time online fetch.
+        // install), fall back to a one-time online fetch if not in offline mode.
         if !config.no_cost {
             match cost::PricingEngine::load(true) {
                 Ok(engine) => {
-                    if engine.is_empty() {
+                    if engine.is_empty() && !offline {
                         match cost::PricingEngine::load(false) {
                             Ok(online_engine) => app.pricing = Some(online_engine),
                             Err(e) => {

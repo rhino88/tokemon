@@ -162,13 +162,14 @@ fn model_matches_prefix(model: &str, prefix: &str) -> bool {
 ///
 /// Returns the input unchanged if no date suffix is found.
 pub fn strip_date_suffix(s: &str) -> &str {
-    if s.len() >= 9 {
-        let last_9 = &s[s.len() - 9..];
+    if s.chars().count() >= 9 {
+        let idx = s.char_indices().rev().nth(8).map_or(0, |(i, _)| i);
+        let last_9 = &s[idx..];
         if last_9.starts_with('-')
             && last_9[1..].len() == 8
             && last_9[1..].chars().all(|c| c.is_ascii_digit())
         {
-            return &s[..s.len() - 9];
+            return &s[..idx];
         }
     }
     s

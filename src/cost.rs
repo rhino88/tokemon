@@ -52,12 +52,31 @@ impl PricingEngine {
         // Fetch from remote
         match Self::fetch_remote() {
             Ok(data) => {
-                // Save to cache
-                if let Some(parent) = cache_path.parent() {
-                    let _ = fs::create_dir_all(parent);
+                match Self::parse_pricing(&data) {
+                    Ok(engine) => {
+                        // Save to cache only if valid
+                        if let Some(parent) = cache_path.parent() {
+                            let _ = fs::create_dir_all(parent);
+                        }
+                        let _ = fs::write(&cache_path, &data);
+                        Ok(engine)
+                    }
+                    Err(e) => {
+                        // Fall back to stale cache if available
+                        if let Some(data) = Self::read_stale_cache(&cache_path) {
+                            if let Ok(engine) = Self::parse_pricing(&data) {
+                                eprintln!(
+                                    "[tokemon] Warning: failed to parse remote pricing: {e}; using cached prices"
+                                );
+                                return Ok(engine);
+                            }
+                        }
+                        eprintln!("[tokemon] Warning: failed to parse remote pricing: {e}; costs will be $0.00");
+                        Ok(Self {
+                            models: HashMap::new(),
+                        })
+                    }
                 }
-                let _ = fs::write(&cache_path, &data);
-                Self::parse_pricing(&data)
             }
             Err(e) => {
                 // Fall back to stale cache if available
@@ -205,6 +224,7 @@ impl PricingEngine {
 
     fn fetch_remote() -> Result<String> {
         let agent = ureq::AgentBuilder::new()
+            .timeout(std::time::Duration::from_secs(35))
             .timeout_connect(std::time::Duration::from_secs(5))
             .timeout_read(std::time::Duration::from_secs(30))
             .build();

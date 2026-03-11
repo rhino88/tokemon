@@ -109,4 +109,10 @@ impl EventHandler {
     pub async fn next(&mut self) -> Option<Event> {
         self.rx.recv().await
     }
+
+    /// Try to receive the next event without blocking.
+    #[allow(dead_code)]
+    pub fn try_next(&mut self) -> Result<Event, mpsc::error::TryRecvError> {
+        self.rx.try_recv()
+    }
 }
