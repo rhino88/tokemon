@@ -84,7 +84,7 @@ pub fn render(frame: &mut Frame, area: Rect, heatmap_data: &[HeatmapDay]) {
     let thresholds = log_thresholds(max_cost);
 
     // Determine how many week columns we can fit.
-    // Each week is 2 chars wide (block + space).
+    // Each week is 2 chars wide (dot/block + space).
     let available_cols = area.width.saturating_sub(LABEL_COL);
     let cell_width: u16 = 2;
     let max_visible_weeks = (available_cols / cell_width) as usize;
@@ -113,40 +113,44 @@ pub fn render(frame: &mut Frame, area: Rect, heatmap_data: &[HeatmapDay]) {
         y += 1;
     }
 
-    // ── Grid rows (Mon=0 .. Sun=6) ───────────────────────────────────
-    let day_labels = ["Mon", "", "Wed", "", "Fri", "", "Sun"];
-    for (row, label) in day_labels.iter().enumerate() {
+    // ── Grid rows (one row per day of week) ──────────────────────────
+    // Labels only on Mon (0), Wed (2), Fri (4); others blank.
+    let day_labels = ["Mon", "", "Wed", "", "Fri", "", ""];
+
+    for (day_idx, label) in day_labels.iter().enumerate() {
         if y >= area.y + area.height {
             break;
         }
 
         let mut spans: Vec<Span> = Vec::with_capacity(visible_weeks + 1);
 
-        // Day-of-week label.
+        // Day-of-week label (or blank).
         spans.push(Span::styled(
             format!("{label:<width$}", width = LABEL_COL as usize),
-            theme::text_dim(),
+            Style::default().fg(theme::FG).bold(),
         ));
 
         // One cell per week.
         for week in 0..visible_weeks {
-            let date = display_start + Duration::weeks(week as i64) + Duration::days(row as i64);
+            let date =
+                display_start + Duration::weeks(week as i64) + Duration::days(day_idx as i64);
+
             if date > today {
-                // Future date: empty space.
-                spans.push(Span::raw(pad_cell(cell_width)));
+                // Future: invisible.
+                spans.push(Span::styled("  ", Style::default()));
             } else if let Some(day) = day_map.get(&date) {
                 let level = intensity_level(day.total_cost, &thresholds);
                 let color = theme::provider_color(&day.dominant_provider);
                 let dimmed = dim_color(color, level);
                 spans.push(Span::styled(
-                    block_cell(cell_width),
-                    Style::default().fg(dimmed).bg(theme::BG),
+                    "\u{2588}\u{2588}", // solid block ██
+                    Style::default().fg(dimmed),
                 ));
             } else {
-                // No activity.
+                // Empty day: dim dot.
                 spans.push(Span::styled(
-                    dot_cell(cell_width),
-                    Style::default().fg(theme::BORDER).bg(theme::BG),
+                    "\u{2022} ", // bullet •
+                    Style::default().fg(theme::BORDER),
                 ));
             }
         }
@@ -154,15 +158,6 @@ pub fn render(frame: &mut Frame, area: Rect, heatmap_data: &[HeatmapDay]) {
         let line = Line::from(spans);
         frame.render_widget(line, Rect::new(area.x, y, area.width, 1));
         y += 1;
-    }
-
-    // ── Spacer ───────────────────────────────────────────────────────
-    y += 1;
-
-    // ── Legend row ───────────────────────────────────────────────────
-    if y < area.y + area.height {
-        let legend = build_legend();
-        frame.render_widget(legend, Rect::new(area.x, y, area.width, 1));
     }
 }
 
@@ -252,51 +247,3 @@ fn build_month_labels(start: NaiveDate, num_weeks: usize, cell_width: u16) -> Ve
     spans
 }
 
-/// Build the "Less ... More" legend line.
-fn build_legend() -> Line<'static> {
-    // Use the default (gray) colour for the legend since it's provider-agnostic.
-    let base = theme::PROVIDER_DEFAULT;
-    let mut spans = vec![
-        Span::styled(
-            " ".repeat(LABEL_COL as usize),
-            theme::text(),
-        ),
-        Span::styled("Less ", theme::text_dim()),
-    ];
-
-    for level in 1..=INTENSITY_LEVELS {
-        let color = dim_color(base, level);
-        spans.push(Span::styled(
-            "\u{2588}",
-            Style::default().fg(color).bg(theme::BG),
-        ));
-    }
-
-    spans.push(Span::styled(" More", theme::text_dim()));
-    Line::from(spans)
-}
-
-/// A filled block cell with trailing space.
-fn block_cell(width: u16) -> String {
-    let mut s = String::with_capacity(width as usize);
-    s.push('\u{2588}'); // █
-    for _ in 1..width {
-        s.push(' ');
-    }
-    s
-}
-
-/// A dot cell for empty days.
-fn dot_cell(width: u16) -> String {
-    let mut s = String::with_capacity(width as usize);
-    s.push('\u{00B7}'); // ·
-    for _ in 1..width {
-        s.push(' ');
-    }
-    s
-}
-
-/// An empty cell (spaces).
-fn pad_cell(width: u16) -> String {
-    " ".repeat(width as usize)
-}
