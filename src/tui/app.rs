@@ -10,6 +10,7 @@ use crate::render::{self, format_tokens_short};
 use crate::source::SourceSet;
 use crate::types::{GroupBy, ModelUsage, PeriodSummary, Record};
 use crate::{cache, cost, dedup, rollup};
+use super::widgets::heatmap::{self, HeatmapDay};
 
 use super::diff::{self, RowKey};
 use super::event::Event;
@@ -177,6 +178,10 @@ pub struct App {
     /// with the instant it was received. Displayed in the status bar
     /// for a few seconds then cleared.
     pub last_warning: Option<(String, Instant)>,
+    /// Whether the contribution heatmap view is shown.
+    pub show_heatmap: bool,
+    /// Per-day heatmap data (past 365 days).
+    pub heatmap_data: Vec<HeatmapDay>,
     /// Whether the settings overlay is shown.
     pub show_settings: bool,
     /// Settings editor state.
@@ -268,6 +273,8 @@ impl App {
             sort_order: SortOrder::CostDesc,
             highlight_map: HashMap::new(),
             last_warning: None,
+            show_heatmap: false,
+            heatmap_data: Vec::new(),
             show_settings: false,
             settings_state: SettingsState::new(config),
             dirty: true,
@@ -458,6 +465,13 @@ impl App {
             KeyCode::Char('h') => {
                 self.show_history = !self.show_history;
                 self.recompute_detail();
+                true
+            }
+            KeyCode::Char('c') => {
+                self.show_heatmap = !self.show_heatmap;
+                if self.show_heatmap {
+                    self.recompute_heatmap();
+                }
                 true
             }
             KeyCode::Char('j') | KeyCode::Down => {
@@ -785,6 +799,11 @@ impl App {
         // Save current models for next diff
         self.prev_models = self.detail_models.clone();
 
+        // Refresh heatmap if it's currently shown.
+        if self.show_heatmap {
+            self.recompute_heatmap();
+        }
+
         has_changes || cards_dirty
     }
 
@@ -967,6 +986,27 @@ impl App {
         } else {
             self.history_summaries.clear();
         }
+    }
+
+    /// Recompute the contribution heatmap data from the past 365 days.
+    fn recompute_heatmap(&mut self) {
+        let today = Utc::now().date_naive();
+        let start = today - Duration::days(364);
+
+        // Load all records for the past year from the cache.
+        let Ok(cache_db) = cache::Cache::open() else {
+            return;
+        };
+        let mut records = cache_db
+            .load_entries_filtered(Some(start), None, &[])
+            .unwrap_or_default();
+
+        if let Some(engine) = self.pricing.as_ref() {
+            engine.apply_costs(&mut records);
+        }
+
+        let summaries = rollup::aggregate_daily(&records);
+        self.heatmap_data = heatmap::build_heatmap_data(&summaries);
     }
 }
 

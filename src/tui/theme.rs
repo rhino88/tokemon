@@ -200,8 +200,33 @@ pub fn highlight_cell(intensity: f64, normal_fg: Color) -> Style {
     style
 }
 
+// ── Provider heatmap colours ─────────────────────────────────────────────
+
+pub const PROVIDER_ANTHROPIC: Color = Color::Rgb(255, 140, 80); // orange/coral
+pub const PROVIDER_OPENAI: Color = Color::Rgb(80, 200, 120); // green
+pub const PROVIDER_GOOGLE: Color = Color::Rgb(85, 150, 255); // blue
+pub const PROVIDER_DEEPSEEK: Color = Color::Rgb(180, 120, 255); // purple
+pub const PROVIDER_MISTRAL: Color = Color::Rgb(255, 200, 60); // gold
+pub const PROVIDER_META: Color = Color::Rgb(60, 180, 220); // teal
+pub const PROVIDER_DEFAULT: Color = Color::Rgb(150, 150, 160); // gray
+
+/// Map an API provider name to its heatmap colour.
+#[must_use]
+pub fn provider_color(provider: &str) -> Color {
+    match provider {
+        "Anthropic" => PROVIDER_ANTHROPIC,
+        "OpenAI" | "AWS Bedrock" | "Azure" => PROVIDER_OPENAI,
+        "Google" | "Vertex AI" => PROVIDER_GOOGLE,
+        "DeepSeek" => PROVIDER_DEEPSEEK,
+        "Mistral" => PROVIDER_MISTRAL,
+        "Meta" => PROVIDER_META,
+        "Alibaba" => Color::Rgb(255, 100, 100), // red-ish
+        _ => PROVIDER_DEFAULT,
+    }
+}
+
 /// Linearly interpolate between two RGB colours.
-fn lerp_color(from: Color, to: Color, t: f64) -> Color {
+pub fn lerp_color(from: Color, to: Color, t: f64) -> Color {
     let t = t.clamp(0.0, 1.0);
     match (from, to) {
         (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => {
