@@ -808,6 +808,10 @@ impl App {
         if !self.initial_load_done {
             self.initial_load_done = true;
             self.prev_models = self.detail_models.clone();
+            // Seed the core visuals on first load so they're populated
+            // the moment the dashboard is drawn.
+            self.recompute_spike_chart();
+            self.recompute_heatmap();
             return true;
         }
 
@@ -826,11 +830,10 @@ impl App {
         // Save current models for next diff
         self.prev_models = self.detail_models.clone();
 
-        match self.fullscreen {
-            FullscreenView::Heatmap => self.recompute_heatmap(),
-            FullscreenView::SpikeChart => self.recompute_spike_chart(),
-            FullscreenView::None => {}
-        }
+        // Spike chart and heatmap are core visuals on the default
+        // dashboard, so always refresh their data when new records arrive.
+        self.recompute_spike_chart();
+        self.recompute_heatmap();
 
         has_changes || cards_dirty
     }
@@ -1056,14 +1059,12 @@ impl App {
         })
     }
 
-    /// Returns `true` if the spike chart is visible and the heat glow is
-    /// still fading (i.e. most recent activity is within the 5-minute window).
-    /// Used by the render loop to keep redrawing while the glow animates.
+    /// Returns `true` if the heat glow on the spike chart is still fading
+    /// (i.e. the most recent activity is within the 5-minute window).
+    /// The spike chart is visible on the default dashboard as well as in
+    /// its fullscreen view, so the glow animates in both.
     #[must_use]
     pub fn has_active_heat(&self) -> bool {
-        if self.fullscreen != FullscreenView::SpikeChart {
-            return false;
-        }
         self.spike_chart_age_secs() < 300.0
     }
 
