@@ -102,12 +102,9 @@ pub fn render(frame: &mut Frame, area: Rect, heatmap_data: &[HeatmapDay]) {
     if y < area.y + area.height {
         let month_line = build_month_labels(display_start, visible_weeks, cell_width);
         let padded = Line::from(
-            std::iter::once(Span::styled(
-                " ".repeat(LABEL_COL as usize),
-                theme::text(),
-            ))
-            .chain(month_line)
-            .collect::<Vec<_>>(),
+            std::iter::once(Span::styled(" ".repeat(LABEL_COL as usize), theme::text()))
+                .chain(month_line)
+                .collect::<Vec<_>>(),
         );
         frame.render_widget(padded, Rect::new(area.x, y, area.width, 1));
         y += 1;
@@ -233,10 +230,7 @@ fn build_month_labels(start: NaiveDate, num_weeks: usize, cell_width: u16) -> Ve
             // Pad from current position to this column.
             let target_col = week * cell_width as usize;
             if target_col > col {
-                spans.push(Span::styled(
-                    " ".repeat(target_col - col),
-                    theme::text(),
-                ));
+                spans.push(Span::styled(" ".repeat(target_col - col), theme::text()));
                 col = target_col;
             }
             spans.push(Span::styled(label.to_string(), theme::text_dim()));
@@ -246,4 +240,3 @@ fn build_month_labels(start: NaiveDate, num_weeks: usize, cell_width: u16) -> Ve
 
     spans
 }
-

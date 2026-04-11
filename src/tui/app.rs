@@ -2,15 +2,16 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::timestamp;
-use chrono::{Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use crossterm::event::{KeyCode, KeyEvent};
 
+use super::widgets::heatmap::{self, HeatmapDay};
+use super::widgets::spike_chart;
 use crate::config::Config;
 use crate::render::{self, format_tokens_short};
 use crate::source::SourceSet;
 use crate::types::{GroupBy, ModelUsage, PeriodSummary, Record};
 use crate::{cache, cost, dedup, rollup};
-use super::widgets::heatmap::{self, HeatmapDay};
 
 use super::diff::{self, RowKey};
 use super::event::Event;
@@ -22,6 +23,14 @@ const HIGHLIGHT_DURATION_SECS: f64 = 1.5;
 const WARNING_DISPLAY_SECS: f64 = 5.0;
 
 // ── View scope ────────────────────────────────────────────────────────────
+
+/// Which fullscreen overlay (if any) replaces the normal dashboard.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FullscreenView {
+    None,
+    Heatmap,
+    SpikeChart,
+}
 
 /// Which time window the detail table shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,10 +187,15 @@ pub struct App {
     /// with the instant it was received. Displayed in the status bar
     /// for a few seconds then cleared.
     pub last_warning: Option<(String, Instant)>,
-    /// Whether the contribution heatmap view is shown.
-    pub show_heatmap: bool,
+    /// Which fullscreen view (if any) is active.
+    pub fullscreen: FullscreenView,
     /// Per-day heatmap data (past 365 days).
     pub heatmap_data: Vec<HeatmapDay>,
+    /// Per-bucket spike chart data (today, 5-min buckets).
+    pub spike_chart_data: Vec<spike_chart::SpikeChartBucket>,
+    /// Timestamp of the most recent record — used to compute the heat glow
+    /// age at render time (so the fade animates smoothly between data polls).
+    pub spike_chart_most_recent: Option<DateTime<Utc>>,
     /// Whether the settings overlay is shown.
     pub show_settings: bool,
     /// Settings editor state.
@@ -273,8 +287,10 @@ impl App {
             sort_order: SortOrder::CostDesc,
             highlight_map: HashMap::new(),
             last_warning: None,
-            show_heatmap: false,
+            fullscreen: FullscreenView::None,
             heatmap_data: Vec::new(),
+            spike_chart_data: Vec::new(),
+            spike_chart_most_recent: None,
             show_settings: false,
             settings_state: SettingsState::new(config),
             dirty: true,
@@ -468,9 +484,20 @@ impl App {
                 true
             }
             KeyCode::Char('c') => {
-                self.show_heatmap = !self.show_heatmap;
-                if self.show_heatmap {
+                if self.fullscreen == FullscreenView::Heatmap {
+                    self.fullscreen = FullscreenView::None;
+                } else {
+                    self.fullscreen = FullscreenView::Heatmap;
                     self.recompute_heatmap();
+                }
+                true
+            }
+            KeyCode::Char('v') => {
+                if self.fullscreen == FullscreenView::SpikeChart {
+                    self.fullscreen = FullscreenView::None;
+                } else {
+                    self.fullscreen = FullscreenView::SpikeChart;
+                    self.recompute_spike_chart();
                 }
                 true
             }
@@ -799,9 +826,10 @@ impl App {
         // Save current models for next diff
         self.prev_models = self.detail_models.clone();
 
-        // Refresh heatmap if it's currently shown.
-        if self.show_heatmap {
-            self.recompute_heatmap();
+        match self.fullscreen {
+            FullscreenView::Heatmap => self.recompute_heatmap(),
+            FullscreenView::SpikeChart => self.recompute_spike_chart(),
+            FullscreenView::None => {}
         }
 
         has_changes || cards_dirty
@@ -1008,6 +1036,37 @@ impl App {
         let summaries = rollup::aggregate_daily(&records);
         self.heatmap_data = heatmap::build_heatmap_data(&summaries);
     }
+
+    /// Recompute the spike chart data from today's cached records.
+    fn recompute_spike_chart(&mut self) {
+        let result = spike_chart::build_spike_data(&self.cached_records, 10);
+        self.spike_chart_data = result.buckets;
+        self.spike_chart_most_recent = result.most_recent;
+    }
+
+    /// Seconds since the most recent record, or `f64::MAX` if there are no
+    /// records yet.  Computed fresh on each call so the heat glow fade
+    /// animates smoothly between data polls.
+    #[must_use]
+    pub fn spike_chart_age_secs(&self) -> f64 {
+        self.spike_chart_most_recent.map_or(f64::MAX, |ts| {
+            #[allow(clippy::cast_precision_loss)]
+            let secs = (Utc::now() - ts).num_milliseconds().max(0) as f64 / 1000.0;
+            secs
+        })
+    }
+
+    /// Returns `true` if the spike chart is visible and the heat glow is
+    /// still fading (i.e. most recent activity is within the 5-minute window).
+    /// Used by the render loop to keep redrawing while the glow animates.
+    #[must_use]
+    pub fn has_active_heat(&self) -> bool {
+        if self.fullscreen != FullscreenView::SpikeChart {
+            return false;
+        }
+        self.spike_chart_age_secs() < 300.0
+    }
+
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

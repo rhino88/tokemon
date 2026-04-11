@@ -2,10 +2,10 @@ use ratatui::layout::{Constraint, Layout};
 use ratatui::widgets::Block;
 use ratatui::Frame;
 
-use crate::tui::app::App;
+use crate::tui::app::{App, FullscreenView};
 use crate::tui::theme;
 use crate::tui::views::{help, settings};
-use crate::tui::widgets::{header, heatmap, status_bar, summary_cards, usage_table};
+use crate::tui::widgets::{header, heatmap, spike_chart, status_bar, summary_cards, usage_table};
 
 /// Render the complete dashboard view.
 ///
@@ -24,19 +24,33 @@ pub fn render(frame: &mut Frame, app: &App) {
     let bg = Block::default().style(theme::text());
     frame.render_widget(bg, area);
 
-    if app.show_heatmap {
-        // Heatmap view: header + heatmap + status bar
-        let layout = Layout::vertical([
-            Constraint::Length(1), // header
-            Constraint::Min(10),   // heatmap
-            Constraint::Length(1), // status bar
-        ])
-        .split(area);
+    match app.fullscreen {
+        FullscreenView::Heatmap | FullscreenView::SpikeChart => {
+            let layout = Layout::vertical([
+                Constraint::Length(1), // header
+                Constraint::Min(10),   // chart
+                Constraint::Length(1), // status bar
+            ])
+            .split(area);
 
-        header::render(frame, layout[0], app);
-        heatmap::render(frame, layout[1], &app.heatmap_data);
-        status_bar::render(frame, layout[2], app);
-    } else {
+            header::render(frame, layout[0], app);
+            match app.fullscreen {
+                FullscreenView::Heatmap => {
+                    heatmap::render(frame, layout[1], &app.heatmap_data);
+                }
+                FullscreenView::SpikeChart => {
+                    spike_chart::render(
+                        frame,
+                        layout[1],
+                        &app.spike_chart_data,
+                        app.spike_chart_age_secs(),
+                    );
+                }
+                FullscreenView::None => unreachable!(),
+            }
+            status_bar::render(frame, layout[2], app);
+        }
+        FullscreenView::None => {
         // Normal dashboard view
         // Determine card height based on terminal height
         let card_height = if area.height >= 30 {
@@ -78,6 +92,7 @@ pub fn render(frame: &mut Frame, app: &App) {
 
         // Status bar
         status_bar::render(frame, layout[idx], app);
+        }
     }
 
     // Overlays (rendered on top of everything)

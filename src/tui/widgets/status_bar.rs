@@ -56,6 +56,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         ("g", &group_label),
         ("h", "history"),
         ("c", "calendar"),
+        ("v", "spikes"),
         ("s", &sort_label),
         ("/", "filter"),
         ("j/k", "scroll"),

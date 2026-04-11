@@ -109,7 +109,7 @@ async fn run_async(
             break;
         }
 
-        let is_animating = app.has_active_highlights();
+        let is_animating = app.has_active_highlights() || app.has_active_heat();
         if was_animating && !is_animating {
             app.dirty = true;
         }
