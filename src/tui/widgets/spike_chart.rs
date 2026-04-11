@@ -346,21 +346,20 @@ fn render_braille(
     baseline: usize,
 ) {
     let mid_row = chart_h / 2;
+    // Vertically center OUT above the baseline and IN below it.
+    let out_label_row = mid_row / 2;
+    let in_label_row = (mid_row + chart_h) / 2;
 
     for row in 0..chart_h {
         let row_top = row * 4;
         let mut spans: Vec<Span> = Vec::with_capacity(chart_w + 1);
 
-        let label = match row.cmp(&mid_row) {
-            std::cmp::Ordering::Less => {
-                if row == 0 {
-                    "OUT "
-                } else {
-                    "    "
-                }
-            }
-            std::cmp::Ordering::Equal => " IN ",
-            std::cmp::Ordering::Greater => "    ",
+        let label = if row == out_label_row {
+            "OUT "
+        } else if row == in_label_row {
+            " IN "
+        } else {
+            "    "
         };
         spans.push(Span::styled(label, theme::text_dim()));
 
