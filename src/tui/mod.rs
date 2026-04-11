@@ -16,7 +16,7 @@ use app::{App, Scope};
 use event::{Event, EventHandler};
 
 /// Default data poll interval (seconds).
-const DEFAULT_TICK_SECS: u64 = 2;
+const DEFAULT_TICK_SECS: u64 = 1;
 
 /// Target frame rate for rendering.
 const RENDER_FPS: u64 = 30;

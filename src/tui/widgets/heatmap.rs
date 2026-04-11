@@ -4,6 +4,7 @@ use chrono::{Datelike, Duration, NaiveDate, Utc};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders};
 use ratatui::Frame;
 
 use crate::display;
@@ -58,6 +59,17 @@ const INTENSITY_LEVELS: usize = 4;
 
 /// Render the contribution heatmap into the given area.
 pub fn render(frame: &mut Frame, area: Rect, heatmap_data: &[HeatmapDay]) {
+    // Bordered frame — matches the usage table at the bottom of the dashboard.
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(theme::border())
+        .title(Span::styled(" Last Year ", theme::header()))
+        .style(theme::text());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    // Rebind so the existing rendering logic below continues to use `area`.
+    let area = inner;
+
     if area.width < MIN_WIDTH || area.height < 10 {
         let msg = Line::from(Span::styled(
             "Terminal too small for heatmap",

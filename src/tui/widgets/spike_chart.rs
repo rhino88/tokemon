@@ -4,6 +4,7 @@ use chrono::{DateTime, Timelike, Utc};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders};
 use ratatui::Frame;
 
 use crate::display;
@@ -136,7 +137,7 @@ const MIN_WIDTH: u16 = 20;
 const MIN_HEIGHT: u16 = 5;
 const LABEL_COL: u16 = 4;
 /// Minimum token scale — spikes need at least this many tokens to reach full height.
-const MIN_SCALE: u64 = 50_000;
+const MIN_SCALE: u64 = 15_000;
 
 /// Render the spike chart into the given area.
 ///
@@ -151,6 +152,17 @@ pub fn render(
     data: &[SpikeChartBucket],
     age_secs: f64,
 ) {
+    // Bordered frame — matches the usage table at the bottom of the dashboard.
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(theme::border())
+        .title(Span::styled(" Activity ", theme::header()))
+        .style(theme::text());
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    // Rebind so the existing rendering logic below continues to use `area`.
+    let area = inner;
+
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         let msg = Line::from(Span::styled(
             "Terminal too small for spike chart",

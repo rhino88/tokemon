@@ -82,28 +82,29 @@ fn render_default(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, app: 
     let total = area.height;
     let mut remaining = total.saturating_sub(CHROME);
 
-    // Spike chart: core visual. Give it 10 rows if we can afford it,
-    // degrade to 8 / 6 on tighter terminals, skip only if we can't fit
-    // its minimum (5 rows).
-    let spike_height: u16 = if remaining >= 10 {
+    // Spike chart: core visual. Give it 12 rows if we can afford it,
+    // degrade to 10 / 8 on tighter terminals, skip only if we can't fit
+    // its minimum (7 rows = 5 content + 2 border).
+    let spike_height: u16 = if remaining >= 12 {
+        12
+    } else if remaining >= 10 {
         10
     } else if remaining >= 8 {
         8
-    } else if remaining >= 6 {
-        6
-    } else if remaining >= 5 {
-        5
+    } else if remaining >= 7 {
+        7
     } else {
         0
     };
     remaining = remaining.saturating_sub(spike_height);
 
-    // Heatmap: core visual. Needs at least 10 rows and 60 cols — otherwise
-    // it renders a "too small" placeholder, so skip it entirely below that.
-    let heatmap_height: u16 = if remaining >= 12 && area.width >= 60 {
+    // Heatmap: core visual. Needs 10 content rows + 2 border = 12 and
+    // 60 content cols + 2 border = 62 — otherwise it renders a "too small"
+    // placeholder, so skip it entirely below that.
+    let heatmap_height: u16 = if remaining >= 14 && area.width >= 62 {
+        14
+    } else if remaining >= 12 && area.width >= 62 {
         12
-    } else if remaining >= 10 && area.width >= 60 {
-        10
     } else {
         0
     };
