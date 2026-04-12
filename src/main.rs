@@ -19,6 +19,7 @@ mod cli;
 mod config;
 mod cost;
 mod dedup;
+mod demo;
 mod display;
 mod error;
 mod mcp;

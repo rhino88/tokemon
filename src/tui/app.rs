@@ -1032,6 +1032,10 @@ impl App {
             .load_entries_filtered(Some(start), None, &[])
             .unwrap_or_default();
 
+        // DEMO: inject hard-coded synthetic records. Remove this line when
+        // the demo is over. See src/demo.rs.
+        records.extend(crate::demo::records());
+
         if let Some(engine) = self.pricing.as_ref() {
             engine.apply_costs(&mut records);
         }
@@ -1042,7 +1046,7 @@ impl App {
 
     /// Recompute the spike chart data from today's cached records.
     fn recompute_spike_chart(&mut self) {
-        let result = spike_chart::build_spike_data(&self.cached_records, 10);
+        let result = spike_chart::build_spike_data(&self.cached_records, 5);
         self.spike_chart_data = result.buckets;
         self.spike_chart_most_recent = result.most_recent;
     }
@@ -1114,6 +1118,10 @@ fn load_records_from_cache(pricing: Option<&cost::PricingEngine>) -> Vec<Record>
     let mut entries = c
         .load_entries_filtered(Some(since), None, &[])
         .unwrap_or_default();
+
+    // DEMO: inject hard-coded synthetic records. Remove this line when the
+    // demo is over. See src/demo.rs.
+    entries.extend(crate::demo::records());
 
     // Apply pricing from pre-loaded engine (no disk I/O here).
     if let Some(engine) = pricing {

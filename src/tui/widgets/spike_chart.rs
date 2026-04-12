@@ -139,6 +139,15 @@ const LABEL_COL: u16 = 4;
 /// Minimum token scale — spikes need at least this many tokens to reach full height.
 const MIN_SCALE: u64 = 15_000;
 
+/// Absolute token count at which a spike's tip burns bright white.
+///
+/// Spike *heights* are normalized to the max bucket in the visible window
+/// (so the chart auto-fits whatever magnitudes are present), but spike
+/// *colors* are pinned to this absolute scale — otherwise when the window
+/// max changes, every spike's color would flicker even though its data is
+/// unchanged.
+const COLOR_SATURATION_TOKENS: u64 = 100_000;
+
 /// Render the spike chart into the given area.
 ///
 /// `age_secs` is the number of seconds since the most recent record.  When
@@ -242,9 +251,12 @@ fn spike_gradient(dim: Color, mid: Color, bright: Color, t: f64) -> Color {
 
 /// Paint a vertical segment of the spike in a single provider's color.
 ///
-/// `fill_ratio` (0..1) is how much of the available half-height this spike
-/// actually fills.  The gradient's peak brightness is capped to this ratio
-/// so that short spikes stay in the dim-to-mid range instead of jumping to white.
+/// `color_peak` (0..1) caps the gradient's peak brightness for this spike,
+/// so that small spikes stay in the dim-to-mid range instead of jumping to
+/// white. It is computed against an absolute token scale
+/// (`COLOR_SATURATION_TOKENS`), **not** the window-relative fill ratio —
+/// otherwise spike colors would flicker whenever neighboring buckets
+/// scroll in or out of view and the scale rebased.
 #[allow(clippy::too_many_arguments)]
 fn paint_segment(
     grid: &mut [Vec<Option<Color>>],
@@ -259,9 +271,9 @@ fn paint_segment(
     bright: Color,
     go_up: bool,
     baseline: usize,
-    fill_ratio: f64,
+    color_peak: f64,
 ) {
-    let max_t = fill_ratio.clamp(0.0, 1.0);
+    let max_t = color_peak.clamp(0.0, 1.0);
     for dy in start_dy..end_dy {
         let py = if go_up {
             baseline.saturating_sub(1 + dy)
@@ -311,7 +323,13 @@ fn build_pixel_grid(
             if tokens == 0 {
                 continue;
             }
+            // Height is window-relative (so the chart auto-fits whatever's
+            // in view); color is absolute (so spikes don't flicker when the
+            // visible window's max changes).
             let ratio = tokens as f64 / max_tokens as f64;
+            #[allow(clippy::cast_precision_loss)]
+            let color_peak =
+                (tokens as f64 / COLOR_SATURATION_TOKENS as f64).clamp(0.0, 1.0);
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             let total_h = (ratio * half_h as f64).ceil() as usize;
             let total_h = total_h.max(1).min(half_h);
@@ -335,7 +353,7 @@ fn build_pixel_grid(
                 let dim_color = theme::lerp_color(color, theme::BORDER, 0.75);
                 paint_segment(
                     &mut grid, cx, pixel_w, pixel_h, dy_cursor, end_dy, total_h, color, dim_color,
-                    bright, go_up, baseline, ratio,
+                    bright, go_up, baseline, color_peak,
                 );
                 dy_cursor = end_dy;
             }
